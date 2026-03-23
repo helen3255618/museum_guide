@@ -98,11 +98,11 @@ with st.sidebar:
 
     VERSIONS = [
         {
-            "version": "v2.8",
+            "version": "v2.9",
             "date": "2026-03-23",
             "changes": [
                 "📷 Camera on-demand — activates only when needed, stays hidden otherwise",
-                "🧠 Upgraded to gpt-5.4-mini (removed photo to stay on chat completions API)",
+                "🚀 Migrated to Responses API — now using gpt-5.4-mini natively",
                 "🔬 Scientific name input — type the specimen label, AI knows exactly what you're looking at",
                 "💰 Smart model routing: mini for text, full model only when photo attached",
                 "📷 Optional photo input — snap a photo before recording, AI sees it with your question",
@@ -205,23 +205,32 @@ def stream_gpt(messages: list) -> str:
     full_text = ""
     placeholder = st.empty()
 
-    model = "gpt-5.4-mini"
+    # Convert chat messages to Responses API format
+    system_text = ""
+    input_items = []
+    for m in messages:
+        if m["role"] == "system":
+            system_text = m["content"]
+        elif m["role"] == "user":
+            input_items.append({"role": "user", "content": m["content"]})
+        elif m["role"] == "assistant":
+            input_items.append({"role": "assistant", "content": m["content"]})
 
-    stream = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        max_tokens=800,
-        temperature=0.7,
+    stream = client.responses.create(
+        model="gpt-5.4-mini",
+        instructions=system_text,
+        input=input_items,
+        max_output_tokens=800,
         stream=True,
     )
 
-    for chunk in stream:
-        delta = chunk.choices[0].delta.content or ""
-        full_text += delta
-        placeholder.markdown(
-            f'<div class="streaming-text">{full_text}<span style="opacity:0.3">▌</span></div>',
-            unsafe_allow_html=True
-        )
+    for event in stream:
+        if event.type == "response.output_text.delta":
+            full_text += event.delta
+            placeholder.markdown(
+                f'<div class="streaming-text">{full_text}<span style="opacity:0.3">▌</span></div>',
+                unsafe_allow_html=True
+            )
 
     placeholder.markdown(
         f'<div class="msg-guide">{full_text}</div>',
