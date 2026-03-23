@@ -98,11 +98,11 @@ with st.sidebar:
 
     VERSIONS = [
         {
-            "version": "v2.6",
+            "version": "v2.7",
             "date": "2026-03-23",
             "changes": [
                 "📷 Camera on-demand — activates only when needed, stays hidden otherwise",
-                "🧠 Model: gpt-5.4-mini for all requests (supports image + text, chat completions compatible)",
+                "🔄 Reverted to gpt-4o / gpt-4o-mini (stable chat completions, image supported)",
                 "🔬 Scientific name input — type the specimen label, AI knows exactly what you're looking at",
                 "💰 Smart model routing: mini for text, full model only when photo attached",
                 "📷 Optional photo input — snap a photo before recording, AI sees it with your question",
@@ -210,7 +210,7 @@ def stream_gpt(messages: list) -> str:
         for m in messages
         if m["role"] == "user"
     )
-    model = "gpt-5.4-mini"
+    model = "gpt-4o" if has_image else "gpt-4o-mini"
 
     stream = client.chat.completions.create(
         model=model,
