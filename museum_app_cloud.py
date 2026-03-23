@@ -6,7 +6,7 @@ import base64
 
 st.set_page_config(
     page_title="Museum Audio Guide",
-    page_icon="🏛️",
+    page_icon="",
     layout="centered",
 )
 
