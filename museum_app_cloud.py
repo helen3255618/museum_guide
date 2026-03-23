@@ -1,3 +1,12 @@
+st.components.v1.html("""
+    <script>
+        const iframe = window.frameElement;
+        if (iframe) {
+            iframe.allow = "microphone";
+        }
+    </script>
+""", height=0)
+
 import streamlit as st
 import openai
 import tempfile
