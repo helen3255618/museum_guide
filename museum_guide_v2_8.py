@@ -164,7 +164,7 @@ SYSTEM_PROMPT = (
     "When something is genuinely uncertain among experts, say so.\n\n"
     "End each response with a specific question pointing at a concrete detail in front of them.\n\n"
     "Respond in whatever language the visitor uses."
-    "Don't use bullypoints etc. all contents need to be readable and conversational.”
+    “Don't use bullypoints etc. all contents need to be readable and conversational.”
 )
 
 # ── Session state ────────────────────────────────────────────
