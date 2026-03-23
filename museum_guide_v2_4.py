@@ -98,9 +98,10 @@ with st.sidebar:
 
     VERSIONS = [
         {
-            "version": "v2.4",
+            "version": "v2.5",
             "date": "2026-03-23",
             "changes": [
+                "📷 Camera on-demand — activates only when needed, stays hidden otherwise",
                 "🧠 Model upgraded to gpt-5.4 (with photo) / gpt-5.4-mini (text only)",
                 "🔬 Scientific name input — type the specimen label, AI knows exactly what you're looking at",
                 "💰 Smart model routing: mini for text, full model only when photo attached",
@@ -292,14 +293,27 @@ with col1:
             st.rerun()
 
 with col2:
-    camera_shot = st.camera_input("📷 Optional photo")
-    if camera_shot:
-        st.session_state.pending_image = base64.b64encode(camera_shot.getvalue()).decode()
+    if st.session_state.pending_image:
         st.success("Photo ready")
-    if st.session_state.pending_image and not camera_shot:
         if st.button("✕ Clear photo"):
             st.session_state.pending_image = None
             st.rerun()
+    else:
+        if "camera_open" not in st.session_state:
+            st.session_state.camera_open = False
+        if not st.session_state.camera_open:
+            if st.button("📷 Take photo"):
+                st.session_state.camera_open = True
+                st.rerun()
+        else:
+            camera_shot = st.camera_input("📷 Take photo")
+            if camera_shot:
+                st.session_state.pending_image = base64.b64encode(camera_shot.getvalue()).decode()
+                st.session_state.camera_open = False
+                st.rerun()
+            if st.button("✕ Cancel"):
+                st.session_state.camera_open = False
+                st.rerun()
 
 with col3:
     audio_input = st.audio_input("🎙 Record your question")
