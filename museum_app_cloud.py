@@ -177,7 +177,7 @@ def stream_gpt(messages: list) -> str:
 # ── Header ───────────────────────────────────────────────────
 st.markdown("""
 <div class="main-header">
-    <h1>🏛 Museum Audio Guide</h1>
+    <h1>🏛 Museum Audio Guide v.1</h1>
     <p>Speak your question — the guide will respond</p>
 </div>
 """, unsafe_allow_html=True)
