@@ -98,14 +98,13 @@ with st.sidebar:
 
     VERSIONS = [
         {
-            "version": "v2.9",
-            "date": "2026-03-23",
+            "version": "v2.8",
+            "date": "2026-03-24",
             "changes": [
-                "📷 Camera on-demand — activates only when needed, stays hidden otherwise",
-                "🚀 Migrated to Responses API — now using gpt-5.4-mini natively",
-                "🔬 Scientific name input — type the specimen label, AI knows exactly what you're looking at",
-                "💰 Smart model routing: mini for text, full model only when photo attached",
-                "📷 Optional photo input — snap a photo before recording, AI sees it with your question",
+                "⏹ Stop audio button — instantly kills playback if transcription was wrong",
+                "📷 Camera on-demand — activates only when needed",
+                "🔄 gpt-4o / gpt-4o-mini routing (stable chat completions)",
+                "🔬 Scientific name input — stays locked across conversation",
                 "🎙 Iframe microphone permission fix for Streamlit Cloud",
                 "🔊 Voice list expanded: added ash, coral, sage",
             ],
@@ -164,11 +163,10 @@ SYSTEM_PROMPT = (
     "When something is genuinely uncertain among experts, say so.\n\n"
     "End each response with a specific question pointing at a concrete detail in front of them.\n\n"
     "Respond in whatever language the visitor uses."
-    "Do not use bullypoints etc. all contents need to be readable and conversational."
 )
 
 # ── Session state ────────────────────────────────────────────
-for k, v in [("history", []), ("display", []), ("specimen_name", "")]:
+for k, v in [("history", []), ("display", []), ("pending_image", None), ("specimen_name", ""), ("is_playing", False)]:
     if k not in st.session_state:
         st.session_state[k] = v
 
@@ -192,11 +190,29 @@ def tts(text: str) -> bytes:
 
 def autoplay_audio(audio_bytes: bytes):
     b64 = base64.b64encode(audio_bytes).decode()
+    # Store audio on window._guideAudio so the stop button can reach it
     st.components.v1.html(
         f"""
         <script>
-        var audio = new Audio('data:audio/mp3;base64,{b64}');
-        audio.play();
+        if (window.top._guideAudio) {{
+            window.top._guideAudio.pause();
+            window.top._guideAudio.currentTime = 0;
+        }}
+        window.top._guideAudio = new Audio('data:audio/mp3;base64,{b64}');
+        window.top._guideAudio.play();
+        </script>
+        """,
+        height=0,
+    )
+
+def stop_audio():
+    st.components.v1.html(
+        """
+        <script>
+        if (window.top._guideAudio) {
+            window.top._guideAudio.pause();
+            window.top._guideAudio.currentTime = 0;
+        }
         </script>
         """,
         height=0,
@@ -206,32 +222,28 @@ def stream_gpt(messages: list) -> str:
     full_text = ""
     placeholder = st.empty()
 
-    # Convert chat messages to Responses API format
-    system_text = ""
-    input_items = []
-    for m in messages:
-        if m["role"] == "system":
-            system_text = m["content"]
-        elif m["role"] == "user":
-            input_items.append({"role": "user", "content": m["content"]})
-        elif m["role"] == "assistant":
-            input_items.append({"role": "assistant", "content": m["content"]})
+    has_image = any(
+        isinstance(m.get("content"), list)
+        for m in messages
+        if m["role"] == "user"
+    )
+    model = "gpt-4o" if has_image else "gpt-4o-mini"
 
-    stream = client.responses.create(
-        model="gpt-5.4-mini",
-        instructions=system_text,
-        input=input_items,
-        max_output_tokens=800,
+    stream = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        max_tokens=800,
+        temperature=0.7,
         stream=True,
     )
 
-    for event in stream:
-        if event.type == "response.output_text.delta":
-            full_text += event.delta
-            placeholder.markdown(
-                f'<div class="streaming-text">{full_text}<span style="opacity:0.3">▌</span></div>',
-                unsafe_allow_html=True
-            )
+    for chunk in stream:
+        delta = chunk.choices[0].delta.content or ""
+        full_text += delta
+        placeholder.markdown(
+            f'<div class="streaming-text">{full_text}<span style="opacity:0.3">▌</span></div>',
+            unsafe_allow_html=True
+        )
 
     placeholder.markdown(
         f'<div class="msg-guide">{full_text}</div>',
@@ -239,6 +251,20 @@ def stream_gpt(messages: list) -> str:
     )
     return full_text
 
+
+def build_user_message(text: str, image_b64: str | None) -> dict:
+    if image_b64:
+        return {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"},
+                },
+                {"type": "text", "text": text},
+            ],
+        }
+    return {"role": "user", "content": text}
 
 # ── Header ───────────────────────────────────────────────────
 st.markdown("""
@@ -263,10 +289,10 @@ for msg in st.session_state.display:
             unsafe_allow_html=True
         )
 
-# ── Specimen name + Audio input ──────────────────────────────
+# ── Specimen name + Camera + Audio input ─────────────────────
 st.divider()
 
-col1, col2 = st.columns([1, 2])
+col1, col2, col3 = st.columns([1, 1, 2])
 
 with col1:
     specimen_input = st.text_input(
@@ -283,7 +309,34 @@ with col1:
             st.rerun()
 
 with col2:
+    if st.session_state.pending_image:
+        st.success("Photo ready")
+        if st.button("✕ Clear photo"):
+            st.session_state.pending_image = None
+            st.rerun()
+    else:
+        if "camera_open" not in st.session_state:
+            st.session_state.camera_open = False
+        if not st.session_state.camera_open:
+            if st.button("📷 Take photo"):
+                st.session_state.camera_open = True
+                st.rerun()
+        else:
+            camera_shot = st.camera_input("📷 Take photo")
+            if camera_shot:
+                st.session_state.pending_image = base64.b64encode(camera_shot.getvalue()).decode()
+                st.session_state.camera_open = False
+                st.rerun()
+            if st.button("✕ Cancel"):
+                st.session_state.camera_open = False
+                st.rerun()
+
+with col3:
     audio_input = st.audio_input("🎙 Record your question")
+
+# ── Stop button — always visible ─────────────────────────────
+if st.button("⏹ Stop audio"):
+    stop_audio()
 
 if audio_input:
     with st.spinner("Transcribing..."):
@@ -297,6 +350,8 @@ if audio_input:
         display_text = user_text
         if st.session_state.specimen_name:
             display_text = f"🔬 {st.session_state.specimen_name} — {user_text}"
+        if st.session_state.pending_image:
+            display_text = "📷 " + display_text
 
         st.markdown(
             f'<div class="label-visitor">Visitor</div>'
@@ -304,9 +359,11 @@ if audio_input:
             unsafe_allow_html=True
         )
 
-        user_msg = {"role": "user", "content": full_text}
+        user_msg = build_user_message(full_text, st.session_state.pending_image)
         st.session_state.display.append({"role": "visitor", "content": display_text})
         st.session_state.history.append(user_msg)
+
+        st.session_state.pending_image = None
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
         st.markdown('<div class="label-guide">Guide</div>', unsafe_allow_html=True)
