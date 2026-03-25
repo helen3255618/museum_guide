@@ -344,7 +344,7 @@ st.components.v1.html("""
 
 if audio_input:
     # Single spinner covers transcription + generation
-    with st.spinner("思考中..."):
+    with st.spinner("Just a moment..."):
         user_text = stt(audio_input.getvalue())
 
     if user_text:
