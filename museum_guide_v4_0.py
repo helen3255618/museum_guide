@@ -411,58 +411,32 @@ st.markdown("""
 
 # ── Input area ────────────────────────────────────────────────
 st.divider()
-
-# Step 1 label
-st.markdown(
-    '<p style="font-family:JetBrains Mono,monospace;font-size:0.6rem;'
-    'letter-spacing:0.15em;color:#9a8878;text-transform:uppercase;margin-bottom:0.4rem;">'
-    'Step 1 &nbsp;·&nbsp; Identify exhibit <span style="font-weight:300;color:#c4b8a8;">(optional)</span></p>',
-    unsafe_allow_html=True
-)
-
-# Step 1 row: scientific name | divider | camera — equal weight, side by side
-col_name, col_or, col_cam = st.columns([5, 1, 5])
+col_name, col_cam, col_mic = st.columns([1, 1, 2])
 
 with col_name:
     specimen_input = st.text_input(
         "🔬 Scientific name",
         value=st.session_state.specimen_name,
         placeholder="e.g. Panthera leo",
-        label_visibility="collapsed",
     )
     if specimen_input != st.session_state.specimen_name:
         st.session_state.specimen_name = specimen_input
-    # Inline status — no separate row
     if st.session_state.specimen_name:
-        col_locked, col_clr = st.columns([3, 1])
-        with col_locked:
-            st.caption(f"🔬 _{st.session_state.specimen_name}_")
-        with col_clr:
-            if st.button("✕", key="clear_name", help="Clear scientific name"):
-                st.session_state.specimen_name = ""
-                st.rerun()
-
-with col_or:
-    st.markdown(
-        '<div style="text-align:center;padding-top:0.5rem;'
-        'font-family:JetBrains Mono,monospace;font-size:0.65rem;'
-        'color:#c4b8a8;letter-spacing:0.1em;">or</div>',
-        unsafe_allow_html=True
-    )
+        st.caption(f"Locked: _{st.session_state.specimen_name}_")
+        if st.button("✕ Clear name"):
+            st.session_state.specimen_name = ""
+            st.rerun()
 
 with col_cam:
     if st.session_state.pending_image:
-        col_ready, col_clr2 = st.columns([3, 1])
-        with col_ready:
-            st.caption("📷 _Photo ready_")
-        with col_clr2:
-            if st.button("✕", key="clear_photo", help="Clear photo"):
-                st.session_state.pending_image = None
-                st.session_state.pending_image_b64 = None
-                st.rerun()
+        st.success("📷 Photo ready")
+        if st.button("✕ Clear photo"):
+            st.session_state.pending_image = None
+            st.session_state.pending_image_b64 = None
+            st.rerun()
     else:
         if not st.session_state.camera_open:
-            if st.button("📷 Photograph exhibit", use_container_width=True):
+            if st.button("📷 Photograph exhibit"):
                 st.session_state.camera_open = True
                 st.rerun()
         else:
@@ -477,20 +451,10 @@ with col_cam:
                 st.session_state.camera_open = False
                 st.rerun()
 
-st.markdown("<div style='margin-top:1.2rem;'></div>", unsafe_allow_html=True)
+with col_mic:
+    audio_input = st.audio_input("🎙 Record your question")
 
-# Step 2 label
-st.markdown(
-    '<p style="font-family:JetBrains Mono,monospace;font-size:0.6rem;'
-    'letter-spacing:0.15em;color:#9a8878;text-transform:uppercase;margin-bottom:0.4rem;">'
-    'Step 2 &nbsp;·&nbsp; Ask your question</p>',
-    unsafe_allow_html=True
-)
-
-# Step 2: full-width mic
-audio_input = st.audio_input("🎙 Record your question", label_visibility="collapsed")
-
-# Pause / Resume — tucked directly under mic
+# ── Pause / Resume (from v3_9) ────────────────────────────────
 st.components.v1.html("""
 <button id="audioToggleBtn"
     onclick="
@@ -502,8 +466,8 @@ st.components.v1.html("""
     style="background:#f7f4ef;color:#c4956a;border:1px solid #d4c8b8;
            font-family:'JetBrains Mono',monospace;font-size:0.7rem;
            letter-spacing:0.1em;border-radius:4px;padding:0.35rem 0.75rem;
-           cursor:pointer;margin-top:0.3rem;">⏸ Pause</button>
-""", height=36)
+           cursor:pointer;margin-top:0.5rem;">⏸ Pause</button>
+""", height=40)
 
 # ── Main interaction loop ─────────────────────────────────────
 if audio_input:
