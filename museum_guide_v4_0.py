@@ -337,6 +337,7 @@ for k, v in [
     ("pending_image", None),
     ("pending_image_b64", None),
     ("camera_open", False),
+    ("specimen_name", ""),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -356,6 +357,7 @@ with st.sidebar:
         st.session_state.display = []
         st.session_state.pending_image = None
         st.session_state.pending_image_b64 = None
+        st.session_state.specimen_name = ""
         st.rerun()
     st.divider()
     st.markdown('<p style="font-family:JetBrains Mono,monospace;font-size:0.65rem;letter-spacing:0.15em;color:#9a8878;text-transform:uppercase;">Version log</p>', unsafe_allow_html=True)
@@ -409,7 +411,21 @@ st.markdown("""
 
 # ── Input area ────────────────────────────────────────────────
 st.divider()
-col_cam, col_mic = st.columns([1, 2])
+col_name, col_cam, col_mic = st.columns([1, 1, 2])
+
+with col_name:
+    specimen_input = st.text_input(
+        "🔬 Scientific name",
+        value=st.session_state.specimen_name,
+        placeholder="e.g. Panthera leo",
+    )
+    if specimen_input != st.session_state.specimen_name:
+        st.session_state.specimen_name = specimen_input
+    if st.session_state.specimen_name:
+        st.caption(f"Locked: _{st.session_state.specimen_name}_")
+        if st.button("✕ Clear name"):
+            st.session_state.specimen_name = ""
+            st.rerun()
 
 with col_cam:
     if st.session_state.pending_image:
@@ -461,7 +477,7 @@ if audio_input:
         user_text, lang = stt(audio_input.getvalue())
 
     if user_text:
-        # Step 1: identify exhibit if photo present
+        # Step 1: identify exhibit — photo takes priority, specimen_name is fallback
         exhibit_info = None
         if image_b64:
             with st.spinner("Identifying exhibit..."):
@@ -473,6 +489,20 @@ if audio_input:
                     name_display += f" · {exhibit_info['scientific_name']}"
                 st.markdown(
                     f'<div class="identify-badge">📷 {name_display}</div>',
+                    unsafe_allow_html=True
+                )
+
+        # If no photo (or low-confidence identification), fall back to manual specimen name
+        if not exhibit_info or exhibit_info.get("confidence") == "low":
+            if st.session_state.specimen_name:
+                exhibit_info = {
+                    "name": st.session_state.specimen_name,
+                    "scientific_name": st.session_state.specimen_name,
+                    "confidence": "manual",
+                    "description": "",
+                }
+                st.markdown(
+                    f'<div class="identify-badge">🔬 {st.session_state.specimen_name}</div>',
                     unsafe_allow_html=True
                 )
 
