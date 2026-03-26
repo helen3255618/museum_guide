@@ -265,10 +265,10 @@ def autoplay_audio(audio_bytes: bytes):
     )
 
 # ── Streaming answer with RAG context (merged) ───────────────
-def stream_answer(question: str, lang: str, exhibit_info: dict | None = None) -> tuple[str, bool]:
+def stream_answer(question: str, lang: str, exhibit_info: dict | None = None) -> tuple[str, bool, list, list]:
     """
     Retrieve context, stream answer.
-    Returns (full_text, context_was_found).
+    Returns (full_text, context_was_found, docs, metas).
     """
     # Build search query: exhibit name + question
     query_parts = []
@@ -279,7 +279,7 @@ def stream_answer(question: str, lang: str, exhibit_info: dict | None = None) ->
     query_parts.append(question)
     query = " ".join(query_parts)
 
-    docs, _ = search(query)
+    docs, metas = search(query)
     context_found = bool(docs and any(d.strip() for d in docs))
     context = "\n\n".join([f"[{i+1}] {d}" for i, d in enumerate(docs)]) if context_found else ""
 
@@ -328,7 +328,7 @@ def stream_answer(question: str, lang: str, exhibit_info: dict | None = None) ->
         f'<div class="msg-guide">{full_text}</div>',
         unsafe_allow_html=True
     )
-    return full_text, context_found
+    return full_text, context_found, docs, metas
 
 # ── Session state ────────────────────────────────────────────
 for k, v in [
@@ -553,13 +553,29 @@ if audio_input:
         # Step 3: retrieve + stream answer
         st.markdown('<div class="label-guide">Guide</div>', unsafe_allow_html=True)
         with st.spinner("Thinking..."):
-            reply, context_found = stream_answer(user_text, lang, exhibit_info)
+            reply, context_found, docs, metas = stream_answer(user_text, lang, exhibit_info)
 
         if not context_found:
             st.markdown(
                 '<div class="no-context-badge">ℹ️ No exhibit notes found — answered from general knowledge</div>',
                 unsafe_allow_html=True
             )
+
+        # DEV ONLY — set expanded=False before going live,
+        # or remove this block entirely for production.
+        with st.expander("🔍 Retrieved chunks (debug)", expanded=True):
+            if not docs:
+                st.caption("No chunks retrieved.")
+            for i, (doc, meta) in enumerate(zip(docs, metas)):
+                st.markdown(
+                    f"**Chunk {i+1}**"
+                    f"&nbsp;·&nbsp; zone: `{meta.get('exhibition_zone', '—')}`"
+                    f"&nbsp;·&nbsp; domain: `{meta.get('domain', '—')}`"
+                    f"&nbsp;·&nbsp; subject: `{meta.get('subject', '—')}`"
+                )
+                st.caption(doc)
+                if i < len(docs) - 1:
+                    st.divider()
 
         # Step 4: TTS
         voice_sel = None if voice_override == "auto" else voice_override
