@@ -101,27 +101,7 @@ with st.sidebar:
 
     VERSIONS = [
         {
-            "version": "v3.9",
-            "date": "2026-03-24",
-            "changes": [
-                "✨ Streamlined UX: single spinner, text stays in place, audio plays silently",
-                "⏸ Stop/resume audio — pure JS toggle, no rerun, no re-generation",
-                "📷 Camera on-demand — activates only when needed",
-                "🔄 gpt-4o / gpt-4o-mini routing (stable chat completions, image supported)",
-                "🔬 Scientific name input — stays locked across conversation",
-                "🎙 Iframe microphone permission fix for Streamlit Cloud",
-                "🔊 Voice list expanded: added ash, coral, sage",
-            ],
-        },
-        {
-            "version": "v2.0",
-            "date": "2026-03-20",
-            "changes": [
-                "🏛 Initial museum audio guide",
-                "🎙 Voice recording via st.audio_input",
-                "🔊 Text-to-speech auto-playback",
-                "💬 Multi-turn conversation with context memory",
-            ],
+            "version": "v4.0 in editing",
         },
     ]
 
