@@ -102,6 +102,8 @@ with st.sidebar:
     VERSIONS = [
         {
             "version": "v4.0 in editing",
+            "date": "Apr 2026",
+            "changes": ["Work in progress"],
         },
     ]
 
