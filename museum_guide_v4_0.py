@@ -3,6 +3,8 @@ import openai
 import tempfile
 import os
 import base64
+from google import genai
+from google.genai import types
 
 st.set_page_config(
     page_title="Museum Audio Guide",
@@ -68,6 +70,18 @@ html, body, [class*="css"] { font-family: 'Cormorant Garamond', Georgia, serif; 
     font-size: 1.05rem; line-height: 1.75; color: #2a1f14;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
+.style-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    color: #f7f4ef;
+    background: #c4956a;
+    border-radius: 4px;
+    padding: 0.3rem 0.6rem;
+    display: inline-block;
+    margin-top: 0.4rem;
+    line-height: 1.6;
+}
 section[data-testid="stSidebar"] { background: #f0ebe3; border-right: 1px solid #d4c8b8; }
 .stButton > button {
     background: #f7f4ef; color: #c4956a; border: 1px solid #d4c8b8;
@@ -76,20 +90,27 @@ section[data-testid="stSidebar"] { background: #f0ebe3; border-right: 1px solid 
 }
 .stButton > button:hover { background: #fff; border-color: #c4956a; }
 audio { display: none !important; }
-
-
-
 </style>
 """, unsafe_allow_html=True)
 
+# ── Fixed voice ───────────────────────────────────────────────
+VOICE = "nova"
+
 # ── Sidebar ──────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown('<p style="font-family:JetBrains Mono,monospace;font-size:0.65rem;letter-spacing:0.15em;color:#9a8878;text-transform:uppercase;">Configuration</p>', unsafe_allow_html=True)
-    voice = st.selectbox(
-        "Voice",
-        ["nova", "shimmer", "alloy", "ash", "coral", "echo", "fable", "onyx", "sage"],
-        index=0
+    st.markdown(
+        '<p style="font-family:JetBrains Mono,monospace;font-size:0.65rem;'
+        'letter-spacing:0.15em;color:#9a8878;text-transform:uppercase;">Guide Mode</p>',
+        unsafe_allow_html=True
     )
+    st.markdown(
+        '<div class="style-badge">'
+        '● Nova — Cold &amp; Precise<br>'
+        'Cross-Disciplinary Associative Thinking Simulator'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
     st.divider()
     if st.button("↺  New Visitor"):
         st.session_state.history = []
@@ -97,7 +118,11 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.markdown('<p style="font-family:JetBrains Mono,monospace;font-size:0.65rem;letter-spacing:0.15em;color:#9a8878;text-transform:uppercase;">Version log</p>', unsafe_allow_html=True)
+    st.markdown(
+        '<p style="font-family:JetBrains Mono,monospace;font-size:0.65rem;'
+        'letter-spacing:0.15em;color:#9a8878;text-transform:uppercase;">Version log</p>',
+        unsafe_allow_html=True
+    )
 
     VERSIONS = [
         {
@@ -123,33 +148,112 @@ with st.sidebar:
                 unsafe_allow_html=True
             )
 
-# ── API Key ──────────────────────────────────────────────────
+# ── API Keys ─────────────────────────────────────────────────
 try:
-    api_key = st.secrets["OPENAI_API_KEY"]
+    openai_api_key = st.secrets["OPENAI_API_KEY"]
 except Exception:
-    st.error("API key not found. Go to Manage app → Settings → Secrets and add OPENAI_API_KEY.")
+    st.error("OpenAI API key not found. Add OPENAI_API_KEY in Secrets.")
     st.stop()
 
-client = openai.OpenAI(api_key=api_key)
+try:
+    google_api_key = st.secrets["GOOGLE_API_KEY"]
+except Exception:
+    st.error("Google API key not found. Add GOOGLE_API_KEY in Secrets.")
+    st.stop()
 
-SYSTEM_PROMPT = (
-    "You are a museum companion with deep knowledge across natural history, ecology, "
-    "art history, archaeology, materials science, and physics. "
-    "You walk alongside a curious visitor who has no specialist background.\n\n"
-    "Your first move is always a short, precise question to find out what the visitor "
-    "is actually looking at. Not a broad invitation but something specific enough to "
-    "reveal where their attention really is.\n\n"
-    "Then go somewhere real. Bring in the actual mechanism, the actual historical moment, "
-    "the actual species, the actual material, the actual place. "
-    "Not general statements like 'this reflects trade networks' but the specific route, "
-    "the specific material, the reason it traveled, the moment in history when that happened.\n\n"
-    "Narrate as if thinking out loud on a slow walk. "
-    "Short punchy sentences for clear points, longer ones to build context. "
-    "Cross-disciplinary connections only when real and tight.\n\n"
-    "When something is genuinely uncertain among experts, say so.\n\n"
-    "End each response with a specific question pointing at a concrete detail in front of them.\n\n"
-    "Respond in whatever language the visitor uses."
-)
+openai_client = openai.OpenAI(api_key=openai_api_key)
+gemini_client = genai.Client(api_key=google_api_key)
+GEMINI_MODEL = "gemini-3.1-pro-preview"
+
+# ── System Prompt ─────────────────────────────────────────────
+SYSTEM_PROMPT = """
+You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating
+multidimensional associative capabilities. By simulating cross-disciplinary thinking
+pathways, you spark innovation and deep insight. Your core goal is to help users build
+meaningful connections between seemingly unrelated fields, thereby enhancing their
+perceptual clarity and problem-solving ability.
+
+OPERATING MECHANISM
+
+Concept Parsing and Decomposition:
+When a user inputs a concept, question, or challenge, you first perform a deep analysis,
+identifying core elements, implicit assumptions, and latent dimensions. You break complex
+concepts into smaller, manageable components for multi-angle examination.
+
+Multidimensional Knowledge Retrieval and Association:
+You draw on a broad knowledge base — science, art, philosophy, history, economics,
+engineering, sociology, and beyond — retrieving information both directly and tangentially
+related to the user's input. You focus on identifying shared patterns, analogies,
+metaphors, structures, processes, or underlying principles across disciplines. You
+actively seek connections between concepts that are not typically associated, in order
+to break habitual thinking.
+
+Building Multidimensional Associative Pathways:
+You generate cross-disciplinary associative pathways of several types:
+- Direct analogy: finding functionally or structurally similar things across fields.
+- Indirect connection: linking seemingly unrelated domains through shared abstract
+  concepts or universal principles.
+- Reverse inference: working backward from outcomes or phenomena in one field to
+  possible causes or applications in another.
+- Combinatorial innovation: merging elements from multiple disciplines to form new
+  concepts or solutions.
+- Historical evolution: tracing how a concept or phenomenon has evolved across different
+  historical periods and cultural contexts, uncovering cross-era commonalities.
+
+When building associations, you pay particular attention to quantitative and scalar
+relationships — degree, proportion, intensity, frequency, scope, balance, tipping points —
+looking for how these dimensions manifest across disciplines. For example: exploring how
+"elasticity" appears differently in physics, economics, and psychology.
+
+Heuristic Questioning and Guidance:
+You ask provocative questions to guide deeper thinking — "How does this concept manifest
+in field X?" "What would happen if we applied the principles of domain A to problem B?"
+"From the perspective of field E, what does the scalar dimension of phenomenon F reveal?"
+You encourage users to explore connections they have not considered, challenging fixed
+assumptions.
+
+Visualization and Elucidation of Associations:
+You present associative pathways in a clear, structured way, using metaphors, examples,
+or brief case studies to aid understanding. For each association, you articulate the
+underlying logic and its potential implications.
+
+BEHAVIORAL PRINCIPLES
+
+Open and exploratory: maintain an open mindset at all times; encourage bold conceptual
+leaps and nonlinear exploration.
+
+Depth and breadth: cover a wide range of knowledge domains while also digging into the
+essence and underlying logic of concepts.
+
+Critical and constructive: alongside offering associations, encourage users to critically
+evaluate their validity and utility, and guide them toward concrete application.
+
+User-centered: adapt the complexity and presentation of associations to the user's
+interests, background, and goals.
+
+Continuous learning: constantly update and expand the knowledge base to meet
+increasingly complex cross-disciplinary challenges.
+
+Tone — direct and unsentimental: use plain, peer-level language. Avoid honorifics and
+overly formal address; speak to the user as an equal.
+
+Refuse clichés: begin each section by precisely identifying the fracture between the
+physical and logical dimensions of the subject. Stay cool — like a detached observer
+revealing the counterintuitive logic beneath the surface. No emotional inflation; only
+facts and their implications.
+
+INTENDED OUTCOMES
+
+Help users break down disciplinary barriers and form a more comprehensive cognitive
+framework. Strengthen the ability to recognize patterns, discover regularities, and build
+analogies. Stimulate innovative thinking and the capacity to solve complex problems.
+Cultivate sensitivity to and precise command of the scalar dimensions between things.
+
+LANGUAGE RULE
+Always respond in the exact language the user has used in their most recent message.
+If they write in Chinese, respond in Chinese. If they write in French, respond in French.
+If they switch languages mid-conversation, switch immediately and completely — no mixing.
+"""
 
 # ── Session state ────────────────────────────────────────────
 for k, v in [("history", []), ("display", []), ("pending_image", None), ("specimen_name", "")]:
@@ -163,15 +267,15 @@ def stt(audio_bytes: bytes) -> str:
         path = f.name
     try:
         with open(path, "rb") as f:
-            return client.audio.transcriptions.create(
+            return openai_client.audio.transcriptions.create(
                 model="whisper-1", file=f
             ).text.strip()
     finally:
         os.unlink(path)
 
 def tts(text: str) -> bytes:
-    return client.audio.speech.create(
-        model="tts-1", voice=voice, input=text, response_format="mp3"
+    return openai_client.audio.speech.create(
+        model="tts-1", voice=VOICE, input=text, response_format="mp3"
     ).content
 
 def autoplay_audio(audio_bytes: bytes):
@@ -193,54 +297,68 @@ def autoplay_audio(audio_bytes: bytes):
         height=0,
     )
 
-def stream_gpt(messages: list) -> str:
-    full_text = ""
-    placeholder = st.empty()
-
-    has_image = any(
-        isinstance(m.get("content"), list)
-        for m in messages
-        if m["role"] == "user"
-    )
-    model = "gpt-4o" if has_image else "gpt-4o-mini"
-
-    stream = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        max_tokens=800,
-        temperature=0.7,
-        stream=True,
-    )
-
-    for chunk in stream:
-        delta = chunk.choices[0].delta.content or ""
-        full_text += delta
-        placeholder.markdown(
-            f'<div class="msg-guide">{full_text}<span style="opacity:0.3">▌</span></div>',
-            unsafe_allow_html=True
-        )
-
-    # Finalize — remove cursor
-    placeholder.markdown(
-        f'<div class="msg-guide">{full_text}</div>',
-        unsafe_allow_html=True
-    )
-    return full_text
-
+def build_gemini_contents(history: list) -> list[types.Content]:
+    contents = []
+    for m in history:
+        role = "user" if m["role"] == "user" else "model"
+        if isinstance(m["content"], list):
+            parts = []
+            for part in m["content"]:
+                if part["type"] == "text":
+                    parts.append(types.Part.from_text(text=part["text"]))
+                elif part["type"] == "image_url":
+                    b64 = part["image_url"]["url"].split(",")[1]
+                    img_bytes = base64.b64decode(b64)
+                    parts.append(types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"))
+            contents.append(types.Content(role=role, parts=parts))
+        else:
+            contents.append(types.Content(
+                role=role,
+                parts=[types.Part.from_text(text=m["content"])]
+            ))
+    return contents
 
 def build_user_message(text: str, image_b64: str | None) -> dict:
     if image_b64:
         return {
             "role": "user",
             "content": [
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"},
-                },
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
                 {"type": "text", "text": text},
             ],
         }
     return {"role": "user", "content": text}
+
+def stream_gemini(messages: list) -> str:
+    full_text = ""
+    placeholder = st.empty()
+
+    history = [m for m in messages if m["role"] != "system"]
+    contents = build_gemini_contents(history)
+
+    stream = gemini_client.models.generate_content_stream(
+        model=GEMINI_MODEL,
+        contents=contents,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            max_output_tokens=800,
+            temperature=0.7,
+        ),
+    )
+
+    for chunk in stream:
+        delta = chunk.text or ""
+        full_text += delta
+        placeholder.markdown(
+            f'<div class="msg-guide">{full_text}<span style="opacity:0.3">▌</span></div>',
+            unsafe_allow_html=True
+        )
+
+    placeholder.markdown(
+        f'<div class="msg-guide">{full_text}</div>',
+        unsafe_allow_html=True
+    )
+    return full_text
 
 # ── Header ───────────────────────────────────────────────────
 st.markdown("""
@@ -250,7 +368,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Input area (top, always visible) ─────────────────────────
+# ── Input area ───────────────────────────────────────────────
 st.divider()
 col1, col2, col3 = st.columns([1, 1, 2])
 
@@ -294,7 +412,7 @@ with col2:
 with col3:
     audio_input = st.audio_input("🎙 Record your question")
 
-# ── Pause / Resume button — pure HTML, no Streamlit rerun ────
+# ── Pause / Resume button ────────────────────────────────────
 st.components.v1.html("""
 <button
     id="audioToggleBtn"
@@ -325,7 +443,6 @@ st.components.v1.html("""
 """, height=40)
 
 if audio_input:
-    # Single spinner covers transcription + generation
     with st.spinner("Just a moment..."):
         user_text = stt(audio_input.getvalue())
 
@@ -348,11 +465,9 @@ if audio_input:
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
 
-        # Stream text — stays visible in place
         st.markdown('<div class="label-guide">Guide</div>', unsafe_allow_html=True)
-        reply = stream_gpt(messages)
+        reply = stream_gemini(messages)
 
-        # Generate and play audio silently in background
         audio_bytes = tts(reply)
         autoplay_audio(audio_bytes)
 
@@ -362,7 +477,7 @@ if audio_input:
         if len(st.session_state.history) > 20:
             st.session_state.history = st.session_state.history[-20:]
 
-# ── Conversation history — guide only, newest first ──────────
+# ── Conversation history ──────────────────────────────────────
 st.divider()
 for msg in reversed(st.session_state.display):
     if msg["role"] == "guide":
