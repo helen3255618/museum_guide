@@ -189,6 +189,9 @@ BEHAVIORAL PRINCIPLES
 NO CLOSING QUESTIONS
 Never end a response with a question, rhetorical question, or any form of prompt directed at the user. Do not invite them to reflect, respond, or continue. Let the observation stand on its own. The user will speak when they are ready.
 
+OUTPUT LENGTH
+Keep each response under 800 words. Be dense and precise, not exhaustive.
+
 LANGUAGE RULE
 Always respond in the exact language the user has used in their most recent message. If they write in Chinese, respond in Chinese. If they write in French, respond in French. Switch immediately and completely when the user switches languages — no mixing."""
 
@@ -290,7 +293,7 @@ def stream_gemini(messages: list) -> str:
             model=GEMINI_MODEL,
             contents=contents,
             config=types.GenerateContentConfig(
-                max_output_tokens=4096,
+                max_output_tokens=1096,
                 temperature=0.7,
             ),
         )
