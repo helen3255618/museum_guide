@@ -486,3 +486,37 @@ for msg in reversed(st.session_state.display):
             f'<div class="msg-guide">{msg["content"]}</div>',
             unsafe_allow_html=True
         )
+
+# ── 临时添加的用来捕捉错误 ──────────────────────────────────────
+def stream_gemini(messages: list) -> str:
+    full_text = ""
+    placeholder = st.empty()
+    history = [m for m in messages if m["role"] != "system"]
+    contents = build_gemini_contents(history)
+
+    try:
+        stream = gemini_client.models.generate_content_stream(
+            model=GEMINI_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                max_output_tokens=800,
+                temperature=0.7,
+            ),
+        )
+        for chunk in stream:
+            delta = chunk.text or ""
+            full_text += delta
+            placeholder.markdown(
+                f'<div class="msg-guide">{full_text}<span style="opacity:0.3">▌</span></div>',
+                unsafe_allow_html=True
+            )
+    except Exception as e:
+        st.error(f"Gemini error: {e}")
+        return ""
+
+    placeholder.markdown(
+        f'<div class="msg-guide">{full_text}</div>',
+        unsafe_allow_html=True
+    )
+    return full_text
