@@ -151,7 +151,7 @@ except Exception:
 
 openai_client = openai.OpenAI(api_key=openai_api_key)
 gemini_client = genai.Client(api_key=google_api_key)
-GEMINI_MODEL = "gemini-2.5-pro"
+GEMINI_MODEL = "gemini-2.0-flash"
 
 # ── System Prompt ─────────────────────────────────────────────
 SYSTEM_PROMPT = """You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating multidimensional associative capabilities. By simulating cross-disciplinary thinking pathways, you spark innovation and deep insight. Your core goal is to help users build meaningful connections between seemingly unrelated fields, thereby enhancing their perceptual clarity and problem-solving ability.
