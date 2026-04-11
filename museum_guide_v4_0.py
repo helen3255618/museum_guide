@@ -348,7 +348,7 @@ def stream_gemini(messages: list) -> str:
             model=GEMINI_MODEL,
             contents=contents,
             config=types.GenerateContentConfig(
-                max_output_tokens=1024,
+                max_output_tokens=4019,
                 temperature=0.7,
             ),
         )
