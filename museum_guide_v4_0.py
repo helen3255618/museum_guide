@@ -3,8 +3,12 @@ import openai
 import tempfile
 import os
 import base64
+import datetime
+import uuid
 from google import genai
 from google.genai import types
+import gspread
+from google.oauth2.service_account import Credentials
 
 st.set_page_config(
     page_title="Museum Audio Guide",
@@ -72,6 +76,18 @@ html, body, [class*="css"] { font-family: 'Cormorant Garamond', Georgia, serif; 
     margin-top: 0.4rem;
     line-height: 1.6;
 }
+.notice-bar {
+    background: #f0ebe3;
+    border: 1px solid #d4c8b8;
+    border-radius: 6px;
+    padding: 0.8rem 1.1rem;
+    margin-bottom: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.63rem;
+    color: #9a8878;
+    letter-spacing: 0.05em;
+    line-height: 1.9;
+}
 section[data-testid="stSidebar"] { background: #f0ebe3; border-right: 1px solid #d4c8b8; }
 .stButton > button {
     background: #f7f4ef; color: #c4956a; border: 1px solid #d4c8b8;
@@ -105,6 +121,7 @@ with st.sidebar:
     if st.button("↺  New Visitor"):
         st.session_state.history = []
         st.session_state.display = []
+        st.session_state.session_id = str(uuid.uuid4())
         st.rerun()
 
     st.divider()
@@ -153,6 +170,21 @@ openai_client = openai.OpenAI(api_key=openai_api_key)
 gemini_client = genai.Client(api_key=google_api_key)
 GEMINI_MODEL = "gemini-3.1-pro-preview"
 
+# ── Google Sheets client ──────────────────────────────────────
+try:
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=scopes
+    )
+    gs_client = gspread.authorize(creds)
+    sheet = gs_client.open_by_key(st.secrets["GOOGLE_SHEET_ID"]).sheet1
+    SHEETS_READY = True
+except Exception:
+    SHEETS_READY = False
+
 # ── System Prompt ─────────────────────────────────────────────
 SYSTEM_PROMPT = """You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating multidimensional associative capabilities. By simulating cross-disciplinary thinking pathways, you spark innovation and deep insight. Your core goal is to help users build meaningful connections between seemingly unrelated fields, thereby enhancing their perceptual clarity and problem-solving ability.
 
@@ -175,7 +207,7 @@ You generate cross-disciplinary associative pathways of several types:
 When building associations, pay particular attention to quantitative and scalar relationships — degree, proportion, intensity, frequency, scope, balance, tipping points — looking for how these dimensions manifest across disciplines.
 
 Heuristic Questioning and Guidance:
-Ask provocative questions to guide deeper thinking. Encourage users to explore connections they have not considered, challenging fixed assumptions.
+Encourage users to explore connections they have not considered, challenging fixed assumptions.
 
 BEHAVIORAL PRINCIPLES
 
@@ -190,13 +222,19 @@ NO CLOSING QUESTIONS
 Never end a response with a question, rhetorical question, or any form of prompt directed at the user. Do not invite them to reflect, respond, or continue. Let the observation stand on its own. The user will speak when they are ready.
 
 OUTPUT LENGTH
-Keep each response under 800 words. Be dense and precise, not exhaustive.
+Keep each response under 800 words (for Latin-script languages) or 1000 characters (for Chinese, Japanese, Korean). Be dense and precise, not exhaustive.
 
 LANGUAGE RULE
 Always respond in the exact language the user has used in their most recent message. If they write in Chinese, respond in Chinese. If they write in French, respond in French. Switch immediately and completely when the user switches languages — no mixing."""
 
 # ── Session state ────────────────────────────────────────────
-for k, v in [("history", []), ("display", []), ("pending_image", None), ("specimen_name", "")]:
+for k, v in [
+    ("history", []),
+    ("display", []),
+    ("pending_image", None),
+    ("specimen_name", ""),
+    ("session_id", str(uuid.uuid4())),
+]:
     if k not in st.session_state:
         st.session_state[k] = v
 
@@ -214,6 +252,9 @@ def stt(audio_bytes: bytes) -> str:
         os.unlink(path)
 
 def tts(text: str) -> bytes:
+    # Hard cap at 4000 characters to stay within OpenAI TTS limit
+    if len(text) > 4000:
+        text = text[:4000]
     return openai_client.audio.speech.create(
         model="tts-1", voice=VOICE, input=text, response_format="mp3"
     ).content
@@ -236,6 +277,20 @@ def autoplay_audio(audio_bytes: bytes):
         """,
         height=0,
     )
+
+def log_exchange(user_text: str, reply: str):
+    """Write one Q&A pair to Google Sheets, silently fail if unavailable."""
+    if not SHEETS_READY:
+        return
+    try:
+        sheet.append_row([
+            str(datetime.datetime.utcnow()),
+            st.session_state.session_id,
+            user_text,
+            reply,
+        ])
+    except Exception:
+        pass
 
 def build_user_message(text: str, image_b64: str | None) -> dict:
     if image_b64:
@@ -293,7 +348,7 @@ def stream_gemini(messages: list) -> str:
             model=GEMINI_MODEL,
             contents=contents,
             config=types.GenerateContentConfig(
-                max_output_tokens=4096,
+                max_output_tokens=1024,
                 temperature=0.7,
             ),
         )
@@ -319,6 +374,14 @@ st.markdown("""
 <div class="main-header">
     <h1>🏛 Museum Audio Guide</h1>
     <p>Speak your question — the guide will respond</p>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Notice bar ───────────────────────────────────────────────
+st.markdown("""
+<div class="notice-bar">
+⚠️ &nbsp;AI responses may contain errors — always verify information independently.<br>
+🔒 &nbsp;Your questions and responses are collected anonymously (no personal data) for research purposes only.
 </div>
 """, unsafe_allow_html=True)
 
@@ -423,6 +486,7 @@ if audio_input:
         reply = stream_gemini(messages)
 
         if reply:
+            log_exchange(user_text, reply)
             audio_bytes = tts(reply)
             autoplay_audio(audio_bytes)
             st.session_state.history.append({"role": "assistant", "content": reply})
