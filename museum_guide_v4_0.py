@@ -163,7 +163,7 @@ except Exception:
 
 openai_client = openai.OpenAI(api_key=openai_api_key)
 gemini_client = genai.Client(api_key=google_api_key)
-GEMINI_MODEL = "gemini-3.1-pro-preview"
+GEMINI_MODEL = "gemini-2.5-pro"
 
 # ── System Prompt ─────────────────────────────────────────────
 SYSTEM_PROMPT = """
