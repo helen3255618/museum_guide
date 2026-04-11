@@ -60,16 +60,6 @@ html, body, [class*="css"] { font-family: 'Cormorant Garamond', Georgia, serif; 
     letter-spacing: 0.15em; color: #7a9a6a; text-transform: uppercase;
     margin-bottom: 0.3rem; text-align: right;
 }
-.status-bar {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
-    color: #b0a090; text-align: center; letter-spacing: 0.1em; padding: 0.5rem 0;
-}
-.streaming-text {
-    background: #ffffff; border-left: 3px solid #e8c49a;
-    border-radius: 0 8px 8px 0; padding: 1rem 1.2rem; margin: 0.8rem 0;
-    font-size: 1.05rem; line-height: 1.75; color: #2a1f14;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-}
 .style-badge {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.65rem;
@@ -123,7 +113,6 @@ with st.sidebar:
         'letter-spacing:0.15em;color:#9a8878;text-transform:uppercase;">Version log</p>',
         unsafe_allow_html=True
     )
-
     VERSIONS = [
         {
             "version": "v4.0 in editing",
@@ -131,7 +120,6 @@ with st.sidebar:
             "changes": ["Work in progress"],
         },
     ]
-
     for v in VERSIONS:
         is_latest = v == VERSIONS[0]
         label = f"{'● ' if is_latest else '○ '}{v['version']}  ·  {v['date']}"
@@ -163,97 +151,43 @@ except Exception:
 
 openai_client = openai.OpenAI(api_key=openai_api_key)
 gemini_client = genai.Client(api_key=google_api_key)
-GEMINI_MODEL = "gemini-2.5-pro"
+GEMINI_MODEL = "gemini-2.5-pro-preview-05-06"
 
 # ── System Prompt ─────────────────────────────────────────────
-SYSTEM_PROMPT = """
-You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating
-multidimensional associative capabilities. By simulating cross-disciplinary thinking
-pathways, you spark innovation and deep insight. Your core goal is to help users build
-meaningful connections between seemingly unrelated fields, thereby enhancing their
-perceptual clarity and problem-solving ability.
+SYSTEM_PROMPT = """You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating multidimensional associative capabilities. By simulating cross-disciplinary thinking pathways, you spark innovation and deep insight. Your core goal is to help users build meaningful connections between seemingly unrelated fields, thereby enhancing their perceptual clarity and problem-solving ability.
 
 OPERATING MECHANISM
 
 Concept Parsing and Decomposition:
-When a user inputs a concept, question, or challenge, you first perform a deep analysis,
-identifying core elements, implicit assumptions, and latent dimensions. You break complex
-concepts into smaller, manageable components for multi-angle examination.
+When a user inputs a concept, question, or challenge, you first perform a deep analysis, identifying core elements, implicit assumptions, and latent dimensions. You break complex concepts into smaller, manageable components for multi-angle examination.
 
 Multidimensional Knowledge Retrieval and Association:
-You draw on a broad knowledge base — science, art, philosophy, history, economics,
-engineering, sociology, and beyond — retrieving information both directly and tangentially
-related to the user's input. You focus on identifying shared patterns, analogies,
-metaphors, structures, processes, or underlying principles across disciplines. You
-actively seek connections between concepts that are not typically associated, in order
-to break habitual thinking.
+You draw on a broad knowledge base — science, art, philosophy, history, economics, engineering, sociology, and beyond — retrieving information both directly and tangentially related to the user's input. You focus on identifying shared patterns, analogies, metaphors, structures, processes, or underlying principles across disciplines. You actively seek connections between concepts that are not typically associated, in order to break habitual thinking.
 
 Building Multidimensional Associative Pathways:
 You generate cross-disciplinary associative pathways of several types:
 - Direct analogy: finding functionally or structurally similar things across fields.
-- Indirect connection: linking seemingly unrelated domains through shared abstract
-  concepts or universal principles.
-- Reverse inference: working backward from outcomes or phenomena in one field to
-  possible causes or applications in another.
-- Combinatorial innovation: merging elements from multiple disciplines to form new
-  concepts or solutions.
-- Historical evolution: tracing how a concept or phenomenon has evolved across different
-  historical periods and cultural contexts, uncovering cross-era commonalities.
+- Indirect connection: linking seemingly unrelated domains through shared abstract concepts or universal principles.
+- Reverse inference: working backward from outcomes or phenomena in one field to possible causes or applications in another.
+- Combinatorial innovation: merging elements from multiple disciplines to form new concepts or solutions.
+- Historical evolution: tracing how a concept or phenomenon has evolved across different historical periods and cultural contexts, uncovering cross-era commonalities.
 
-When building associations, you pay particular attention to quantitative and scalar
-relationships — degree, proportion, intensity, frequency, scope, balance, tipping points —
-looking for how these dimensions manifest across disciplines. For example: exploring how
-"elasticity" appears differently in physics, economics, and psychology.
+When building associations, pay particular attention to quantitative and scalar relationships — degree, proportion, intensity, frequency, scope, balance, tipping points — looking for how these dimensions manifest across disciplines.
 
 Heuristic Questioning and Guidance:
-You ask provocative questions to guide deeper thinking — "How does this concept manifest
-in field X?" "What would happen if we applied the principles of domain A to problem B?"
-"From the perspective of field E, what does the scalar dimension of phenomenon F reveal?"
-You encourage users to explore connections they have not considered, challenging fixed
-assumptions.
-
-Visualization and Elucidation of Associations:
-You present associative pathways in a clear, structured way, using metaphors, examples,
-or brief case studies to aid understanding. For each association, you articulate the
-underlying logic and its potential implications.
+Ask provocative questions to guide deeper thinking. Encourage users to explore connections they have not considered, challenging fixed assumptions.
 
 BEHAVIORAL PRINCIPLES
 
-Open and exploratory: maintain an open mindset at all times; encourage bold conceptual
-leaps and nonlinear exploration.
-
-Depth and breadth: cover a wide range of knowledge domains while also digging into the
-essence and underlying logic of concepts.
-
-Critical and constructive: alongside offering associations, encourage users to critically
-evaluate their validity and utility, and guide them toward concrete application.
-
-User-centered: adapt the complexity and presentation of associations to the user's
-interests, background, and goals.
-
-Continuous learning: constantly update and expand the knowledge base to meet
-increasingly complex cross-disciplinary challenges.
-
-Tone — direct and unsentimental: use plain, peer-level language. Avoid honorifics and
-overly formal address; speak to the user as an equal.
-
-Refuse clichés: begin each section by precisely identifying the fracture between the
-physical and logical dimensions of the subject. Stay cool — like a detached observer
-revealing the counterintuitive logic beneath the surface. No emotional inflation; only
-facts and their implications.
-
-INTENDED OUTCOMES
-
-Help users break down disciplinary barriers and form a more comprehensive cognitive
-framework. Strengthen the ability to recognize patterns, discover regularities, and build
-analogies. Stimulate innovative thinking and the capacity to solve complex problems.
-Cultivate sensitivity to and precise command of the scalar dimensions between things.
+- Open and exploratory: maintain an open mindset; encourage bold conceptual leaps and nonlinear exploration.
+- Depth and breadth: cover a wide range of knowledge domains while digging into the essence and underlying logic of concepts.
+- Critical and constructive: encourage users to critically evaluate associations and guide them toward concrete application.
+- User-centered: adapt complexity and presentation to the user's interests, background, and goals.
+- Tone — direct and unsentimental: use plain, peer-level language. No honorifics. Speak as an equal.
+- Refuse clichés: begin each section by precisely identifying the fracture between the physical and logical dimensions of the subject. Stay cool — like a detached observer revealing counterintuitive logic. No emotional inflation; only facts and their implications.
 
 LANGUAGE RULE
-Always respond in the exact language the user has used in their most recent message.
-If they write in Chinese, respond in Chinese. If they write in French, respond in French.
-If they switch languages mid-conversation, switch immediately and completely — no mixing.
-"""
+Always respond in the exact language the user has used in their most recent message. If they write in Chinese, respond in Chinese. If they write in French, respond in French. Switch immediately and completely when the user switches languages — no mixing."""
 
 # ── Session state ────────────────────────────────────────────
 for k, v in [("history", []), ("display", []), ("pending_image", None), ("specimen_name", "")]:
@@ -297,9 +231,32 @@ def autoplay_audio(audio_bytes: bytes):
         height=0,
     )
 
-def build_gemini_contents(history: list) -> list[types.Content]:
-    contents = []
+def build_user_message(text: str, image_b64: str | None) -> dict:
+    if image_b64:
+        return {
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                {"type": "text", "text": text},
+            ],
+        }
+    return {"role": "user", "content": text}
+
+def build_gemini_contents(history: list) -> list:
+    """Convert history to Gemini Content objects, prepending system prompt."""
+    contents = [
+        types.Content(
+            role="user",
+            parts=[types.Part.from_text(text=f"[System instructions]\n{SYSTEM_PROMPT}")]
+        ),
+        types.Content(
+            role="model",
+            parts=[types.Part.from_text(text="Understood. I will follow these instructions precisely.")]
+        ),
+    ]
     for m in history:
+        if m["role"] == "system":
+            continue
         role = "user" if m["role"] == "user" else "model"
         if isinstance(m["content"], list):
             parts = []
@@ -318,17 +275,6 @@ def build_gemini_contents(history: list) -> list[types.Content]:
             ))
     return contents
 
-def build_user_message(text: str, image_b64: str | None) -> dict:
-    if image_b64:
-        return {
-            "role": "user",
-            "content": [
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
-                {"type": "text", "text": text},
-            ],
-        }
-    return {"role": "user", "content": text}
-
 def stream_gemini(messages: list) -> str:
     full_text = ""
     placeholder = st.empty()
@@ -336,23 +282,25 @@ def stream_gemini(messages: list) -> str:
     history = [m for m in messages if m["role"] != "system"]
     contents = build_gemini_contents(history)
 
-    stream = gemini_client.models.generate_content_stream(
-        model=GEMINI_MODEL,
-        contents=contents,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            max_output_tokens=800,
-            temperature=0.7,
-        ),
-    )
-
-    for chunk in stream:
-        delta = chunk.text or ""
-        full_text += delta
-        placeholder.markdown(
-            f'<div class="msg-guide">{full_text}<span style="opacity:0.3">▌</span></div>',
-            unsafe_allow_html=True
+    try:
+        stream = gemini_client.models.generate_content_stream(
+            model=GEMINI_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                max_output_tokens=800,
+                temperature=0.7,
+            ),
         )
+        for chunk in stream:
+            delta = chunk.text or ""
+            full_text += delta
+            placeholder.markdown(
+                f'<div class="msg-guide">{full_text}<span style="opacity:0.3">▌</span></div>',
+                unsafe_allow_html=True
+            )
+    except Exception as e:
+        st.error(f"Gemini API error: {e}")
+        return ""
 
     placeholder.markdown(
         f'<div class="msg-guide">{full_text}</div>',
@@ -442,6 +390,7 @@ st.components.v1.html("""
 >⏸ Pause</button>
 """, height=40)
 
+# ── Main logic ───────────────────────────────────────────────
 if audio_input:
     with st.spinner("Just a moment..."):
         user_text = stt(audio_input.getvalue())
@@ -460,7 +409,6 @@ if audio_input:
         user_msg = build_user_message(full_text, st.session_state.pending_image)
         st.session_state.display.append({"role": "visitor", "content": display_text})
         st.session_state.history.append(user_msg)
-
         st.session_state.pending_image = None
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
@@ -468,11 +416,11 @@ if audio_input:
         st.markdown('<div class="label-guide">Guide</div>', unsafe_allow_html=True)
         reply = stream_gemini(messages)
 
-        audio_bytes = tts(reply)
-        autoplay_audio(audio_bytes)
-
-        st.session_state.history.append({"role": "assistant", "content": reply})
-        st.session_state.display.append({"role": "guide", "content": reply})
+        if reply:
+            audio_bytes = tts(reply)
+            autoplay_audio(audio_bytes)
+            st.session_state.history.append({"role": "assistant", "content": reply})
+            st.session_state.display.append({"role": "guide", "content": reply})
 
         if len(st.session_state.history) > 20:
             st.session_state.history = st.session_state.history[-20:]
@@ -486,37 +434,3 @@ for msg in reversed(st.session_state.display):
             f'<div class="msg-guide">{msg["content"]}</div>',
             unsafe_allow_html=True
         )
-
-# ── 临时添加的用来捕捉错误 ──────────────────────────────────────
-def stream_gemini(messages: list) -> str:
-    full_text = ""
-    placeholder = st.empty()
-    history = [m for m in messages if m["role"] != "system"]
-    contents = build_gemini_contents(history)
-
-    try:
-        stream = gemini_client.models.generate_content_stream(
-            model=GEMINI_MODEL,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
-                max_output_tokens=800,
-                temperature=0.7,
-            ),
-        )
-        for chunk in stream:
-            delta = chunk.text or ""
-            full_text += delta
-            placeholder.markdown(
-                f'<div class="msg-guide">{full_text}<span style="opacity:0.3">▌</span></div>',
-                unsafe_allow_html=True
-            )
-    except Exception as e:
-        st.error(f"Gemini error: {e}")
-        return ""
-
-    placeholder.markdown(
-        f'<div class="msg-guide">{full_text}</div>',
-        unsafe_allow_html=True
-    )
-    return full_text
