@@ -49,6 +49,12 @@ html, body, [class*="css"] { font-family: 'Cormorant Garamond', Georgia, serif; 
     font-size: 1.05rem; line-height: 1.75; color: #2a1f14;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
+.msg-archive {
+    background: #ffffff; border-left: 3px solid #7a9a6a;
+    border-radius: 0 8px 8px 0; padding: 1.2rem 1.4rem; margin: 0.8rem 0;
+    font-size: 0.98rem; line-height: 1.85; color: #2a1f14;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
 .msg-visitor {
     background: #eef2e8; border-right: 3px solid #7a9a6a;
     border-radius: 8px 0 0 8px; padding: 0.8rem 1.2rem; margin: 0.8rem 0;
@@ -59,10 +65,9 @@ html, body, [class*="css"] { font-family: 'Cormorant Garamond', Georgia, serif; 
     font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;
     letter-spacing: 0.15em; color: #c4956a; text-transform: uppercase; margin-bottom: 0.3rem;
 }
-.label-visitor {
+.label-archive {
     font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;
-    letter-spacing: 0.15em; color: #7a9a6a; text-transform: uppercase;
-    margin-bottom: 0.3rem; text-align: right;
+    letter-spacing: 0.15em; color: #7a9a6a; text-transform: uppercase; margin-bottom: 0.3rem;
 }
 .notice-bar {
     background: #f0ebe3;
@@ -83,6 +88,17 @@ html, body, [class*="css"] { font-family: 'Cormorant Garamond', Georgia, serif; 
     color: #9a8878;
     text-transform: uppercase;
     margin-bottom: 0.4rem;
+}
+.disabled-box {
+    background: #ede9e3;
+    border: 1px dashed #c4b8a8;
+    border-radius: 6px;
+    padding: 0.9rem 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: #b0a090;
+    letter-spacing: 0.08em;
+    text-align: center;
 }
 section[data-testid="stSidebar"] { background: #f0ebe3; border-right: 1px solid #d4c8b8; }
 .stButton > button {
@@ -140,112 +156,102 @@ Keep each response under 800 words (for Latin-script languages) or 1000 characte
 LANGUAGE RULE
 Always respond in the exact language the user has used in their most recent message. If they write in Chinese, respond in Chinese. If they write in French, respond in French. Switch immediately and completely when the user switches languages — no mixing."""
 
-SYSTEM_PROMPT_2 = """Role Definition：
-You are a museum-grade audio guide narrator. Your output is optimized for pure listening environments, where users cannot see text and cannot rewind easily.
+SYSTEM_PROMPT_2 = """You are a precise scientific communicator stationed inside a natural history and science museum. Your sole function is to deliver accurate, verified, and universally accepted information about the specific animal, object, or concept the user mentions.
 
-Core Objective
+CORE PRINCIPLE
+One subject. Full clarity. Nothing invented, nothing speculated.
+Only what is confirmed, peer-reviewed, and without significant scientific dispute.
+If something is genuinely contested among experts, say so explicitly and briefly — then stay with what is confirmed.
 
-Generate narration that is:
+INFORMATION FRAMEWORK
+Automatically adapt the structure to the type of subject:
 
-Accurate and domain-correct
-Structured for auditory cognition
-Delivered in a calm, guided, museum-style tone
-Structural Constraints（强约束）
-1. Opening (≤ 2 sentences)
-Establish context immediately
-Create attention hook using contrast or mild surprise
+For animals and species:
+Taxonomy and classification, physical characteristics, habitat and geographic distribution, behavior and social structure, diet and feeding, reproduction and lifespan, conservation status (IUCN or equivalent).
 
-Pattern:
+For objects and artifacts:
+Material composition, estimated age or period, geographic or cultural origin, function and use, manufacturing method if known.
 
-“You might think… but actually…”
-“What you are seeing is…”
-2. Explicit Framing
-Always provide a clear structure upfront
+For concepts and phenomena:
+Precise definition, history of discovery or formulation, core mechanism, real-world examples or applications.
 
-Required:
+DELIVERY STYLE
+Professional but not opaque. Speak like a well-trained museum docent —
+precise language that a non-specialist can follow without the facts being diluted.
+No metaphors, no cross-disciplinary leaps, no subjective commentary.
+Dense, structured, trustworthy.
 
-Number of categories / items
-Basis of classification
+SPOKEN REGISTER
+This response will be read aloud. Write as if speaking directly to a person
+standing in front of an exhibit — not as if writing a textbook entry or
+encyclopedia article. Use natural spoken rhythm: shorter sentences, occasional
+pauses built into the phrasing, no bullet points, no headers, no numbered lists.
+The information must remain precise and complete, but the delivery should feel
+like a knowledgeable person talking, not a database printing.
 
-Example:
+BOUNDARIES
+Do not speculate. Do not extend into other disciplines.
+Do not offer opinions or aesthetic judgments.
+If the user's question goes beyond the direct facts of the subject,
+say so clearly and answer only what is verifiable.
 
-“We can divide them into four groups.”
-“You can tell them apart by…”
-3. Chunking Rule (Critical)
-One entity = one paragraph
-Each paragraph must contain:
-Name
-Location (optional but preferred)
-ONE dominant visual trait
-ONE analogy or mental image
+OUTPUT LENGTH
+Keep responses under 500 words (Latin-script languages) or 1000 characters (Chinese, Japanese, Korean). Cover what is essential. Cut what is decorative.
 
-Forbidden:
+NO CLOSING QUESTIONS
+Never end with a question or invitation to continue.
+Let the information stand on its own.
 
-Multiple competing attributes in same sentence
-Dense taxonomic descriptions
-4. Memory Anchors
+LANGUAGE RULE
+Always respond in the exact language the user has used in their most recent message.
+Switch immediately and completely if the language changes — no mixing."""
 
-Each item must include at least one:
+SYSTEM_PROMPT_3 = """You are a precise scientific reference system inside a natural history and science museum. The user will provide a scientific name or common name of a species, object, or concept. Your sole function is to produce a concise, accurate encyclopedic entry about it.
 
-Analogy (e.g., “like a puzzle”, “like ink spreading”)
-Contrast with previous item
-Simple label (implicit or explicit)
-5. Transition Signals (Every 20–30 seconds)
+CORE PRINCIPLE
+Only confirmed, peer-reviewed, and scientifically undisputed facts.
+If something is genuinely contested, note it briefly and move on.
+Nothing invented. Nothing speculated.
 
-Must include phrases like:
+INFORMATION FRAMEWORK
+For animals and species, cover only what is essential and confirmed:
+taxonomy and classification, physical characteristics, habitat and geographic distribution, behavior and social structure, diet and feeding, reproduction and lifespan, conservation status (IUCN or equivalent).
 
-“Next…”
-“Now let’s look at…”
-“The third type…”
-6. Mid-summary (Optional but recommended)
-Compress previous information into a short recall-friendly line
+For objects and artifacts:
+material composition, estimated age or period, geographic or cultural origin, function and use, manufacturing method if known.
 
-Example:
+For concepts and phenomena:
+precise definition, history of discovery or formulation, core mechanism, real-world examples or applications.
 
-“So far, you’ve seen…”
-“In simple terms…”
-7. Closure (Required)
+DELIVERY STYLE
+Written, not spoken. Clear section headers in bold for each category.
+Prose within each section — no bullet points, no sub-lists.
+Encyclopedic in tone: neutral, precise, factual.
+Each section should be brief but complete.
 
-Must include:
+BOUNDARIES
+No metaphors. No cross-disciplinary leaps. No opinions.
+No speculation beyond confirmed data.
 
-A unifying statement (shared traits or concept)
-A broader context (e.g., ecology, conservation, significance)
-Language Style Constraints
-Sentence length: short to medium (8–18 words preferred)
-Avoid nested clauses
-Prefer spoken rhythm over written grammar
-Use pauses naturally (line breaks)
-Tone Constraints
-Calm, observational, slightly immersive
-No excitement spikes, no exaggerated emotion
-Avoid academic density; prefer guided explanation
-Cognitive Load Rules
-Max 3–4 key items per segment
-Avoid introducing multiple unfamiliar terms at once
-Reinforce with repetition when necessary
-Output Format
-Use line breaks to simulate pacing
-No bullet points
-No headings
-Must read naturally when spoken aloud
-Anti-Patterns（必须避免）
-Dense paragraph without structure
-Back-to-back technical descriptors
-No framing before listing items
-No recap or closure
-Writing as if user is reading, not listening"""
+OUTPUT LENGTH
+Concise. Cover what is necessary for each category. Skip categories that are not applicable or have no confirmed data.
+
+NO CLOSING QUESTIONS
+Never end with a question or invitation to continue.
+
+LANGUAGE RULE
+Always respond in the exact language the user has used in their most recent message.
+Switch immediately and completely if the language changes — no mixing."""
 
 # ── Sidebar ──────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown(
-        '<p class="mode-label">Guide Mode</p>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<p class="mode-label">Guide Mode</p>', unsafe_allow_html=True)
     mode = st.radio(
         label="",
         options=[
             "Mode 1 — Cross-Disciplinary",
             "Mode 2 — Scientific Docent",
+            "Mode 3 — Species Archive",
         ],
         index=0,
         label_visibility="collapsed",
@@ -287,8 +293,15 @@ with st.sidebar:
                 unsafe_allow_html=True
             )
 
-# ── Active system prompt based on mode selection ──────────────
-SYSTEM_PROMPT = SYSTEM_PROMPT_1 if "Mode 1" in mode else SYSTEM_PROMPT_2
+# ── Active system prompt ──────────────────────────────────────
+if "Mode 1" in mode:
+    SYSTEM_PROMPT = SYSTEM_PROMPT_1
+elif "Mode 2" in mode:
+    SYSTEM_PROMPT = SYSTEM_PROMPT_2
+else:
+    SYSTEM_PROMPT = SYSTEM_PROMPT_3
+
+IS_MODE_3 = "Mode 3" in mode
 
 # ── API Keys ─────────────────────────────────────────────────
 try:
@@ -320,7 +333,7 @@ try:
     sheet = gs_client.open_by_key(st.secrets["GOOGLE_SHEET_ID"]).sheet1
     SHEETS_READY = True
     st.sidebar.success("✓ Sheets connected")
-except Exception as e:
+except Exception:
     SHEETS_READY = False
     import traceback
     st.session_state["sheets_error"] = traceback.format_exc()
@@ -337,7 +350,6 @@ for k, v in [
     if k not in st.session_state:
         st.session_state[k] = v
 
-# Reset history when mode changes
 if st.session_state.active_mode != mode:
     st.session_state.history = []
     st.session_state.display = []
@@ -442,6 +454,7 @@ def build_gemini_contents(history: list, system_prompt: str) -> list:
 def stream_gemini(messages: list, system_prompt: str) -> str:
     full_text = ""
     placeholder = st.empty()
+    css_class = "msg-archive" if IS_MODE_3 else "msg-guide"
 
     history = [m for m in messages if m["role"] != "system"]
     contents = build_gemini_contents(history, system_prompt)
@@ -459,7 +472,7 @@ def stream_gemini(messages: list, system_prompt: str) -> str:
             delta = chunk.text or ""
             full_text += delta
             placeholder.markdown(
-                f'<div class="msg-guide">{full_text}<span style="opacity:0.3">▌</span></div>',
+                f'<div class="{css_class}">{full_text}<span style="opacity:0.3">▌</span></div>',
                 unsafe_allow_html=True
             )
     except Exception as e:
@@ -467,7 +480,7 @@ def stream_gemini(messages: list, system_prompt: str) -> str:
         return ""
 
     placeholder.markdown(
-        f'<div class="msg-guide">{full_text}</div>',
+        f'<div class="{css_class}">{full_text}</div>',
         unsafe_allow_html=True
     )
     return full_text
@@ -493,113 +506,158 @@ st.markdown("""
 
 # ── Input area ───────────────────────────────────────────────
 st.divider()
-col1, col2, col3 = st.columns([1, 1, 2])
 
-with col1:
-    specimen_input = st.text_input(
-        "🔬 Scientific name",
-        value=st.session_state.specimen_name,
-        placeholder="e.g. Panthera leo",
-    )
-    if specimen_input != st.session_state.specimen_name:
-        st.session_state.specimen_name = specimen_input
-    if st.session_state.specimen_name:
-        st.caption(f"Locked: _{st.session_state.specimen_name}_")
-        if st.button("✕ Clear name"):
-            st.session_state.specimen_name = ""
-            st.rerun()
+if IS_MODE_3:
+    # Mode 3: only scientific name input + lookup button, no audio
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        archive_query = st.text_input(
+            "🔬 Enter scientific or common name",
+            placeholder="e.g. Mustela sibirica / 黄鼬 / Panthera leo",
+        )
+    with col2:
+        st.markdown("<div style='height:1.8rem'></div>", unsafe_allow_html=True)
+        lookup = st.button("🔍 Look up", use_container_width=True)
 
-with col2:
-    if st.session_state.pending_image:
-        st.success("Photo ready")
-        if st.button("✕ Clear photo"):
-            st.session_state.pending_image = None
-            st.rerun()
-    else:
-        if "camera_open" not in st.session_state:
-            st.session_state.camera_open = False
-        if not st.session_state.camera_open:
-            if st.button("📷 Take photo"):
-                st.session_state.camera_open = True
+    st.markdown("""
+    <div class="disabled-box">
+        🎙 Voice input is not available in Species Archive mode
+    </div>
+    """, unsafe_allow_html=True)
+
+else:
+    # Mode 1 & 2: full input area
+    col1, col2, col3 = st.columns([1, 1, 2])
+
+    with col1:
+        specimen_input = st.text_input(
+            "🔬 Scientific name",
+            value=st.session_state.specimen_name,
+            placeholder="e.g. Panthera leo",
+        )
+        if specimen_input != st.session_state.specimen_name:
+            st.session_state.specimen_name = specimen_input
+        if st.session_state.specimen_name:
+            st.caption(f"Locked: _{st.session_state.specimen_name}_")
+            if st.button("✕ Clear name"):
+                st.session_state.specimen_name = ""
+                st.rerun()
+
+    with col2:
+        if st.session_state.pending_image:
+            st.success("Photo ready")
+            if st.button("✕ Clear photo"):
+                st.session_state.pending_image = None
                 st.rerun()
         else:
-            camera_shot = st.camera_input("📷 Take photo")
-            if camera_shot:
-                st.session_state.pending_image = base64.b64encode(camera_shot.getvalue()).decode()
+            if "camera_open" not in st.session_state:
                 st.session_state.camera_open = False
-                st.rerun()
-            if st.button("✕ Cancel"):
-                st.session_state.camera_open = False
-                st.rerun()
+            if not st.session_state.camera_open:
+                if st.button("📷 Take photo"):
+                    st.session_state.camera_open = True
+                    st.rerun()
+            else:
+                camera_shot = st.camera_input("📷 Take photo")
+                if camera_shot:
+                    st.session_state.pending_image = base64.b64encode(camera_shot.getvalue()).decode()
+                    st.session_state.camera_open = False
+                    st.rerun()
+                if st.button("✕ Cancel"):
+                    st.session_state.camera_open = False
+                    st.rerun()
 
-with col3:
-    audio_input = st.audio_input("🎙 Record your question")
+    with col3:
+        audio_input = st.audio_input("🎙 Record your question")
 
-# ── Pause / Resume button ────────────────────────────────────
-st.components.v1.html("""
-<button
-    id="audioToggleBtn"
-    onclick="
-        var a = window.top._guideAudio;
-        if (!a) return;
-        if (a.paused) {
-            a.play();
-            this.innerText = '⏸ Pause';
-        } else {
-            a.pause();
-            this.innerText = '▶ Resume';
-        }
-    "
-    style="
-        background: #f7f4ef;
-        color: #c4956a;
-        border: 1px solid #d4c8b8;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.7rem;
-        letter-spacing: 0.1em;
-        border-radius: 4px;
-        padding: 0.35rem 0.75rem;
-        cursor: pointer;
-        margin-top: 0.5rem;
-    "
->⏸ Pause</button>
-""", height=40)
+    # Pause / Resume button
+    st.components.v1.html("""
+    <button
+        id="audioToggleBtn"
+        onclick="
+            var a = window.top._guideAudio;
+            if (!a) return;
+            if (a.paused) {
+                a.play();
+                this.innerText = '⏸ Pause';
+            } else {
+                a.pause();
+                this.innerText = '▶ Resume';
+            }
+        "
+        style="
+            background: #f7f4ef;
+            color: #c4956a;
+            border: 1px solid #d4c8b8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            border-radius: 4px;
+            padding: 0.35rem 0.75rem;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        "
+    >⏸ Pause</button>
+    """, height=40)
 
 # ── Main logic ───────────────────────────────────────────────
-if audio_input:
-    with st.spinner("Just a moment..."):
-        user_text = stt(audio_input.getvalue())
 
-    if user_text:
-        full_text = user_text
-        if st.session_state.specimen_name:
-            full_text = f"[Specimen: {st.session_state.specimen_name}] {user_text}"
-
-        display_text = user_text
-        if st.session_state.specimen_name:
-            display_text = f"🔬 {st.session_state.specimen_name} — {user_text}"
-        if st.session_state.pending_image:
-            display_text = "📷 " + display_text
-
-        user_msg = build_user_message(full_text, st.session_state.pending_image)
-        st.session_state.display.append({"role": "visitor", "content": display_text})
+# Mode 3 logic
+if IS_MODE_3:
+    if lookup and archive_query.strip():
+        query = archive_query.strip()
+        user_msg = {"role": "user", "content": f"[Species Archive lookup] {query}"}
+        st.session_state.display.append({"role": "visitor", "content": f"🔬 {query}"})
         st.session_state.history.append(user_msg)
-        st.session_state.pending_image = None
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
 
-        st.markdown('<div class="label-guide">Guide</div>', unsafe_allow_html=True)
+        st.markdown('<div class="label-archive">Species Archive</div>', unsafe_allow_html=True)
         reply = stream_gemini(messages, SYSTEM_PROMPT)
 
         if reply:
-            log_exchange(user_text, reply, mode)
-            audio_bytes = tts(reply)
-            autoplay_audio(audio_bytes)
+            log_exchange(query, reply, mode)
             st.session_state.history.append({"role": "assistant", "content": reply})
-            st.session_state.display.append({"role": "guide", "content": reply})
+            st.session_state.display.append({"role": "archive", "content": reply})
 
         if len(st.session_state.history) > 20:
             st.session_state.history = st.session_state.history[-20:]
+
+# Mode 1 & 2 logic
+else:
+    if audio_input:
+        with st.spinner("Just a moment..."):
+            user_text = stt(audio_input.getvalue())
+
+        if user_text:
+            full_text = user_text
+            if st.session_state.specimen_name:
+                full_text = f"[Specimen: {st.session_state.specimen_name}] {user_text}"
+
+            display_text = user_text
+            if st.session_state.specimen_name:
+                display_text = f"🔬 {st.session_state.specimen_name} — {user_text}"
+            if st.session_state.pending_image:
+                display_text = "📷 " + display_text
+
+            user_msg = build_user_message(full_text, st.session_state.pending_image)
+            st.session_state.display.append({"role": "visitor", "content": display_text})
+            st.session_state.history.append(user_msg)
+            st.session_state.pending_image = None
+
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
+
+            st.markdown('<div class="label-guide">Guide</div>', unsafe_allow_html=True)
+            reply = stream_gemini(messages, SYSTEM_PROMPT)
+
+            if reply:
+                log_exchange(user_text, reply, mode)
+                audio_bytes = tts(reply)
+                autoplay_audio(audio_bytes)
+                st.session_state.history.append({"role": "assistant", "content": reply})
+                st.session_state.display.append({"role": "guide", "content": reply})
+
+            if len(st.session_state.history) > 20:
+                st.session_state.history = st.session_state.history[-20:]
 
 # ── Conversation history ──────────────────────────────────────
 st.divider()
@@ -608,5 +666,11 @@ for msg in reversed(st.session_state.display):
         st.markdown(
             f'<div class="label-guide">Guide</div>'
             f'<div class="msg-guide">{msg["content"]}</div>',
+            unsafe_allow_html=True
+        )
+    elif msg["role"] == "archive":
+        st.markdown(
+            f'<div class="label-archive">Species Archive</div>'
+            f'<div class="msg-archive">{msg["content"]}</div>',
             unsafe_allow_html=True
         )
