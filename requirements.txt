@@ -2,4 +2,5 @@ streamlit>=1.31.0
 openai>=1.0.0
 chromadb
 google-genai
-gspread
+gspread>=6.0.0
+google-auth>=2.0.0
