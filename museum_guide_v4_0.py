@@ -179,7 +179,7 @@ try:
     creds = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"], scopes=scopes
     )
-    gs_client = gspread.Client(auth=creds)
+    gs_client = gspread.client.Client(auth=creds)
     sheet = gs_client.open_by_key(st.secrets["GOOGLE_SHEET_ID"]).sheet1
     SHEETS_READY = True
     st.sidebar.success("✓ Sheets connected")
