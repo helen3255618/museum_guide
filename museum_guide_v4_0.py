@@ -186,9 +186,7 @@ try:
 except Exception as e:
     SHEETS_READY = False
     import traceback
-    err_msg = traceback.format_exc()
-    st.sidebar.error("Sheets error")
-    st.text(err_msg)
+    st.session_state["sheets_error"] = traceback.format_exc()
 
 # ── System Prompt ─────────────────────────────────────────────
 SYSTEM_PROMPT = """You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating multidimensional associative capabilities. By simulating cross-disciplinary thinking pathways, you spark innovation and deep insight. Your core goal is to help users build meaningful connections between seemingly unrelated fields, thereby enhancing their perceptual clarity and problem-solving ability.
@@ -375,6 +373,8 @@ def stream_gemini(messages: list) -> str:
     return full_text
 
 # ── Header ───────────────────────────────────────────────────
+if "sheets_error" in st.session_state:
+    st.error(st.session_state["sheets_error"])
 st.markdown("""
 <div class="main-header">
     <h1>🏛 Museum Audio Guide</h1>
