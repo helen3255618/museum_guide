@@ -64,18 +64,6 @@ html, body, [class*="css"] { font-family: 'Cormorant Garamond', Georgia, serif; 
     letter-spacing: 0.15em; color: #7a9a6a; text-transform: uppercase;
     margin-bottom: 0.3rem; text-align: right;
 }
-.style-badge {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.08em;
-    color: #f7f4ef;
-    background: #c4956a;
-    border-radius: 4px;
-    padding: 0.3rem 0.6rem;
-    display: inline-block;
-    margin-top: 0.4rem;
-    line-height: 1.6;
-}
 .notice-bar {
     background: #f0ebe3;
     border: 1px solid #d4c8b8;
@@ -87,6 +75,14 @@ html, body, [class*="css"] { font-family: 'Cormorant Garamond', Georgia, serif; 
     color: #9a8878;
     letter-spacing: 0.05em;
     line-height: 1.9;
+}
+.mode-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    color: #9a8878;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
 }
 section[data-testid="stSidebar"] { background: #f0ebe3; border-right: 1px solid #d4c8b8; }
 .stButton > button {
@@ -102,94 +98,8 @@ audio { display: none !important; }
 # ── Fixed voice ───────────────────────────────────────────────
 VOICE = "nova"
 
-# ── Sidebar ──────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown(
-        '<p style="font-family:JetBrains Mono,monospace;font-size:0.65rem;'
-        'letter-spacing:0.15em;color:#9a8878;text-transform:uppercase;">Guide Mode</p>',
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        '<div class="style-badge">'
-        '● Nova — Cold &amp; Precise<br>'
-        'Cross-Disciplinary Associative Thinking Simulator'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-    st.divider()
-    if st.button("↺  New Visitor"):
-        st.session_state.history = []
-        st.session_state.display = []
-        st.session_state.session_id = str(uuid.uuid4())
-        st.rerun()
-
-    st.divider()
-    st.markdown(
-        '<p style="font-family:JetBrains Mono,monospace;font-size:0.65rem;'
-        'letter-spacing:0.15em;color:#9a8878;text-transform:uppercase;">Version log</p>',
-        unsafe_allow_html=True
-    )
-    VERSIONS = [
-        {
-            "version": "v4.0 in editing",
-            "date": "Apr 2026",
-            "changes": ["Work in progress"],
-        },
-    ]
-    for v in VERSIONS:
-        is_latest = v == VERSIONS[0]
-        label = f"{'● ' if is_latest else '○ '}{v['version']}  ·  {v['date']}"
-        st.markdown(
-            f'<p style="font-family:JetBrains Mono,monospace;font-size:0.65rem;'
-            f'color:{"#c4956a" if is_latest else "#9a8878"};margin:0.6rem 0 0.2rem 0;">'
-            f'{label}</p>',
-            unsafe_allow_html=True
-        )
-        for change in v["changes"]:
-            st.markdown(
-                f'<p style="font-size:0.78rem;color:#6a5a4a;margin:0.1rem 0 0 0.5rem;line-height:1.5;">'
-                f'{change}</p>',
-                unsafe_allow_html=True
-            )
-
-# ── API Keys ─────────────────────────────────────────────────
-try:
-    openai_api_key = st.secrets["OPENAI_API_KEY"]
-except Exception:
-    st.error("OpenAI API key not found. Add OPENAI_API_KEY in Secrets.")
-    st.stop()
-
-try:
-    google_api_key = st.secrets["GOOGLE_API_KEY"]
-except Exception:
-    st.error("Google API key not found. Add GOOGLE_API_KEY in Secrets.")
-    st.stop()
-
-openai_client = openai.OpenAI(api_key=openai_api_key)
-gemini_client = genai.Client(api_key=google_api_key)
-GEMINI_MODEL = "gemini-3.1-pro-preview"
-
-# ── Google Sheets client ──────────────────────────────────────
-try:
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"], scopes=scopes
-    )
-    gs_client = gspread.client.Client(auth=creds)
-    sheet = gs_client.open_by_key(st.secrets["GOOGLE_SHEET_ID"]).sheet1
-    SHEETS_READY = True
-    st.sidebar.success("✓ Sheets connected")
-except Exception as e:
-    SHEETS_READY = False
-    import traceback
-    st.session_state["sheets_error"] = traceback.format_exc()
-
-# ── System Prompt ─────────────────────────────────────────────
-SYSTEM_PROMPT = """You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating multidimensional associative capabilities. By simulating cross-disciplinary thinking pathways, you spark innovation and deep insight. Your core goal is to help users build meaningful connections between seemingly unrelated fields, thereby enhancing their perceptual clarity and problem-solving ability.
+# ── System Prompts ────────────────────────────────────────────
+SYSTEM_PROMPT_1 = """You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating multidimensional associative capabilities. By simulating cross-disciplinary thinking pathways, you spark innovation and deep insight. Your core goal is to help users build meaningful connections between seemingly unrelated fields, thereby enhancing their perceptual clarity and problem-solving ability.
 
 OPERATING MECHANISM
 
@@ -230,6 +140,146 @@ Keep each response under 800 words (for Latin-script languages) or 1000 characte
 LANGUAGE RULE
 Always respond in the exact language the user has used in their most recent message. If they write in Chinese, respond in Chinese. If they write in French, respond in French. Switch immediately and completely when the user switches languages — no mixing."""
 
+SYSTEM_PROMPT_2 = """You are a precise scientific communicator stationed inside a natural history and science museum. Your sole function is to deliver accurate, verified, and universally accepted information about the specific animal, object, or concept the user mentions.
+
+CORE PRINCIPLE
+One subject. Full clarity. Nothing invented, nothing speculated.
+Only what is confirmed, peer-reviewed, and without significant scientific dispute.
+If something is genuinely contested among experts, say so explicitly and briefly — then stay with what is confirmed.
+
+INFORMATION FRAMEWORK
+Automatically adapt the structure to the type of subject:
+
+For animals and species:
+Taxonomy and classification, physical characteristics, habitat and geographic distribution, behavior and social structure, diet and feeding, reproduction and lifespan, conservation status (IUCN or equivalent).
+
+For objects and artifacts:
+Material composition, estimated age or period, geographic or cultural origin, function and use, manufacturing method if known.
+
+For concepts and phenomena:
+Precise definition, history of discovery or formulation, core mechanism, real-world examples or applications.
+
+DELIVERY STYLE
+Professional but not opaque. Speak like a well-trained museum docent —
+precise language that a non-specialist can follow without the facts being diluted.
+No metaphors, no cross-disciplinary leaps, no subjective commentary.
+Dense, structured, trustworthy.
+
+SPOKEN REGISTER
+This response will be read aloud. Write as if speaking directly to a person
+standing in front of an exhibit — not as if writing a textbook entry or
+encyclopedia article. Use natural spoken rhythm: shorter sentences, occasional
+pauses built into the phrasing, no bullet points, no headers, no numbered lists.
+The information must remain precise and complete, but the delivery should feel
+like a knowledgeable person talking, not a database printing.
+
+BOUNDARIES
+Do not speculate. Do not extend into other disciplines.
+Do not offer opinions or aesthetic judgments.
+If the user's question goes beyond the direct facts of the subject,
+say so clearly and answer only what is verifiable.
+
+OUTPUT LENGTH
+Keep responses under 500 words (Latin-script languages) or 1000 characters (Chinese, Japanese, Korean). Cover what is essential. Cut what is decorative.
+
+NO CLOSING QUESTIONS
+Never end with a question or invitation to continue.
+Let the information stand on its own.
+
+LANGUAGE RULE
+Always respond in the exact language the user has used in their most recent message.
+Switch immediately and completely if the language changes — no mixing."""
+
+# ── Sidebar ──────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown(
+        '<p class="mode-label">Guide Mode</p>',
+        unsafe_allow_html=True
+    )
+    mode = st.radio(
+        label="",
+        options=[
+            "Mode 1 — Cross-Disciplinary",
+            "Mode 2 — Scientific Docent",
+        ],
+        index=0,
+        label_visibility="collapsed",
+    )
+
+    st.divider()
+    if st.button("↺  New Visitor"):
+        st.session_state.history = []
+        st.session_state.display = []
+        st.session_state.session_id = str(uuid.uuid4())
+        st.rerun()
+
+    st.divider()
+    st.markdown(
+        '<p style="font-family:JetBrains Mono,monospace;font-size:0.65rem;'
+        'letter-spacing:0.15em;color:#9a8878;text-transform:uppercase;">Version log</p>',
+        unsafe_allow_html=True
+    )
+    VERSIONS = [
+        {
+            "version": "v4.0 in editing",
+            "date": "Apr 2026",
+            "changes": ["Work in progress"],
+        },
+    ]
+    for v in VERSIONS:
+        is_latest = v == VERSIONS[0]
+        label = f"{'● ' if is_latest else '○ '}{v['version']}  ·  {v['date']}"
+        st.markdown(
+            f'<p style="font-family:JetBrains Mono,monospace;font-size:0.65rem;'
+            f'color:{"#c4956a" if is_latest else "#9a8878"};margin:0.6rem 0 0.2rem 0;">'
+            f'{label}</p>',
+            unsafe_allow_html=True
+        )
+        for change in v["changes"]:
+            st.markdown(
+                f'<p style="font-size:0.78rem;color:#6a5a4a;margin:0.1rem 0 0 0.5rem;line-height:1.5;">'
+                f'{change}</p>',
+                unsafe_allow_html=True
+            )
+
+# ── Active system prompt based on mode selection ──────────────
+SYSTEM_PROMPT = SYSTEM_PROMPT_1 if "Mode 1" in mode else SYSTEM_PROMPT_2
+
+# ── API Keys ─────────────────────────────────────────────────
+try:
+    openai_api_key = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    st.error("OpenAI API key not found. Add OPENAI_API_KEY in Secrets.")
+    st.stop()
+
+try:
+    google_api_key = st.secrets["GOOGLE_API_KEY"]
+except Exception:
+    st.error("Google API key not found. Add GOOGLE_API_KEY in Secrets.")
+    st.stop()
+
+openai_client = openai.OpenAI(api_key=openai_api_key)
+gemini_client = genai.Client(api_key=google_api_key)
+GEMINI_MODEL = "gemini-3.1-pro-preview"
+
+# ── Google Sheets client ──────────────────────────────────────
+try:
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=scopes
+    )
+    gs_client = gspread.client.Client(auth=creds)
+    sheet = gs_client.open_by_key(st.secrets["GOOGLE_SHEET_ID"]).sheet1
+    SHEETS_READY = True
+    st.sidebar.success("✓ Sheets connected")
+except Exception as e:
+    SHEETS_READY = False
+    import traceback
+    st.session_state["sheets_error"] = traceback.format_exc()
+
 # ── Session state ────────────────────────────────────────────
 for k, v in [
     ("history", []),
@@ -237,9 +287,16 @@ for k, v in [
     ("pending_image", None),
     ("specimen_name", ""),
     ("session_id", str(uuid.uuid4())),
+    ("active_mode", mode),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
+
+# Reset history when mode changes
+if st.session_state.active_mode != mode:
+    st.session_state.history = []
+    st.session_state.display = []
+    st.session_state.active_mode = mode
 
 # ── Functions ────────────────────────────────────────────────
 def stt(audio_bytes: bytes) -> str:
@@ -255,7 +312,6 @@ def stt(audio_bytes: bytes) -> str:
         os.unlink(path)
 
 def tts(text: str) -> bytes:
-    # Hard cap at 4000 characters to stay within OpenAI TTS limit
     if len(text) > 4000:
         text = text[:4000]
     return openai_client.audio.speech.create(
@@ -281,14 +337,14 @@ def autoplay_audio(audio_bytes: bytes):
         height=0,
     )
 
-def log_exchange(user_text: str, reply: str):
-    """Write one Q&A pair to Google Sheets, silently fail if unavailable."""
+def log_exchange(user_text: str, reply: str, mode_name: str):
     if not SHEETS_READY:
         return
     try:
         sheet.append_row([
             str(datetime.datetime.utcnow()),
             st.session_state.session_id,
+            mode_name,
             user_text,
             reply,
         ])
@@ -306,12 +362,11 @@ def build_user_message(text: str, image_b64: str | None) -> dict:
         }
     return {"role": "user", "content": text}
 
-def build_gemini_contents(history: list) -> list:
-    """Convert history to Gemini Content objects, prepending system prompt."""
+def build_gemini_contents(history: list, system_prompt: str) -> list:
     contents = [
         types.Content(
             role="user",
-            parts=[types.Part.from_text(text=f"[System instructions]\n{SYSTEM_PROMPT}")]
+            parts=[types.Part.from_text(text=f"[System instructions]\n{system_prompt}")]
         ),
         types.Content(
             role="model",
@@ -339,12 +394,12 @@ def build_gemini_contents(history: list) -> list:
             ))
     return contents
 
-def stream_gemini(messages: list) -> str:
+def stream_gemini(messages: list, system_prompt: str) -> str:
     full_text = ""
     placeholder = st.empty()
 
     history = [m for m in messages if m["role"] != "system"]
-    contents = build_gemini_contents(history)
+    contents = build_gemini_contents(history, system_prompt)
 
     try:
         stream = gemini_client.models.generate_content_stream(
@@ -375,10 +430,11 @@ def stream_gemini(messages: list) -> str:
 # ── Header ───────────────────────────────────────────────────
 if "sheets_error" in st.session_state:
     st.error(st.session_state["sheets_error"])
+
 st.markdown("""
 <div class="main-header">
-    <h1> Curiosity Expedition </h1>
-    <p> Cross-Disciplinary Associative Thinking Simulator </p>
+    <h1>Curiosity Expedition</h1>
+    <p>Cross-Disciplinary Associative Thinking Simulator</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -488,10 +544,10 @@ if audio_input:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
 
         st.markdown('<div class="label-guide">Guide</div>', unsafe_allow_html=True)
-        reply = stream_gemini(messages)
+        reply = stream_gemini(messages, SYSTEM_PROMPT)
 
         if reply:
-            log_exchange(user_text, reply)
+            log_exchange(user_text, reply, mode)
             audio_bytes = tts(reply)
             autoplay_audio(audio_bytes)
             st.session_state.history.append({"role": "assistant", "content": reply})
