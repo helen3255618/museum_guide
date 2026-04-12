@@ -183,7 +183,7 @@ try:
     sheet = gs_client.open_by_key(st.secrets["GOOGLE_SHEET_ID"]).sheet1
     SHEETS_READY = True
     st.sidebar.success("✓ Sheets connected")
-except Exception: as e:
+except Exception as e:
     SHEETS_READY = False
     st.sidebar.error(f"Sheets error: {e}")
 
