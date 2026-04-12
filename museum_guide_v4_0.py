@@ -182,8 +182,10 @@ try:
     gs_client = gspread.authorize(creds)
     sheet = gs_client.open_by_key(st.secrets["GOOGLE_SHEET_ID"]).sheet1
     SHEETS_READY = True
+    st.sidebar.success("✓ Sheets connected")
 except Exception:
     SHEETS_READY = False
+    st.sidebar.error(f"Sheets error: {e}")
 
 # ── System Prompt ─────────────────────────────────────────────
 SYSTEM_PROMPT = """You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating multidimensional associative capabilities. By simulating cross-disciplinary thinking pathways, you spark innovation and deep insight. Your core goal is to help users build meaningful connections between seemingly unrelated fields, thereby enhancing their perceptual clarity and problem-solving ability.
