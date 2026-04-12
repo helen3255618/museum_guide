@@ -377,8 +377,8 @@ if "sheets_error" in st.session_state:
     st.error(st.session_state["sheets_error"])
 st.markdown("""
 <div class="main-header">
-    <h1>🏛 Museum Audio Guide</h1>
-    <p>Speak your question — the guide will respond</p>
+    <h1> Curiosity Expedition </h1>
+    <p> Cross-Disciplinary Associative Thinking Simulator </p>
 </div>
 """, unsafe_allow_html=True)
 
