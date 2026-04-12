@@ -513,7 +513,7 @@ if IS_MODE_3:
     with col1:
         archive_query = st.text_input(
             "🔬 Enter scientific or common name",
-            placeholder="e.g. Mustela sibirica / 黄鼬 / Panthera leo",
+            placeholder="e.g. Mustela sibirica  / Panthera leo",
         )
     with col2:
         st.markdown("<div style='height:1.8rem'></div>", unsafe_allow_html=True)
