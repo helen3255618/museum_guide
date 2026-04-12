@@ -185,7 +185,10 @@ try:
     st.sidebar.success("✓ Sheets connected")
 except Exception as e:
     SHEETS_READY = False
-    st.sidebar.error(f"Sheets error: {e}")
+    import traceback
+    err_msg = traceback.format_exc()
+    st.sidebar.error("Sheets error")
+    st.text(err_msg)
 
 # ── System Prompt ─────────────────────────────────────────────
 SYSTEM_PROMPT = """You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating multidimensional associative capabilities. By simulating cross-disciplinary thinking pathways, you spark innovation and deep insight. Your core goal is to help users build meaningful connections between seemingly unrelated fields, thereby enhancing their perceptual clarity and problem-solving ability.
