@@ -121,11 +121,10 @@ audio { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Fixed voice ───────────────────────────────────────────────
-
 IS_MODE_3 = "Mode 3" in mode
 IS_MODE_4 = "Mode 4" in mode
 
+# ── Fixed voice ───────────────────────────────────────────────
 def tts(text: str) -> bytes:
     voice = "coral" if IS_MODE_4 else "nova"
     if len(text) > 4000:
