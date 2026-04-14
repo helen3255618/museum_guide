@@ -123,12 +123,23 @@ audio { display: none !important; }
 
 # ── Fixed voice ───────────────────────────────────────────────
 def tts(text: str) -> bytes:
-    voice = "coral" if IS_MODE_4 else "nova"
     if len(text) > 4000:
         text = text[:4000]
-    return openai_client.audio.speech.create(
-        model="tts-1", voice=voice, input=text, response_format="mp3"
-    ).content
+
+    if IS_MODE_4:
+        from elevenlabs.client import ElevenLabs
+        el_client = ElevenLabs(api_key=st.secrets["ELEVENLABS_API_KEY"])
+        audio = el_client.text_to_speech.convert(
+            voice_id="P7iVt7Ex0axsYGmciEJV",
+            text=text,
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128",
+        )
+        return b"".join(audio)
+    else:
+        return openai_client.audio.speech.create(
+            model="tts-1", voice="nova", input=text, response_format="mp3"
+        ).content
 
 # ── System Prompts ────────────────────────────────────────────
 SYSTEM_PROMPT_1 = """You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating multidimensional associative capabilities. By simulating cross-disciplinary thinking pathways, you spark innovation and deep insight. Your core goal is to help users build meaningful connections between seemingly unrelated fields, thereby enhancing their perceptual clarity and problem-solving ability.
