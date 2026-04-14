@@ -55,6 +55,12 @@ html, body, [class*="css"] { font-family: 'Cormorant Garamond', Georgia, serif; 
     font-size: 0.98rem; line-height: 1.85; color: #2a1f14;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
+.msg-kids {
+    background: #fffbf0; border-left: 3px solid #f0a030;
+    border-radius: 0 8px 8px 0; padding: 1rem 1.2rem; margin: 0.8rem 0;
+    font-size: 1.08rem; line-height: 1.85; color: #2a1f14;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
 .msg-visitor {
     background: #eef2e8; border-right: 3px solid #7a9a6a;
     border-radius: 8px 0 0 8px; padding: 0.8rem 1.2rem; margin: 0.8rem 0;
@@ -68,6 +74,10 @@ html, body, [class*="css"] { font-family: 'Cormorant Garamond', Georgia, serif; 
 .label-archive {
     font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;
     letter-spacing: 0.15em; color: #7a9a6a; text-transform: uppercase; margin-bottom: 0.3rem;
+}
+.label-kids {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;
+    letter-spacing: 0.15em; color: #f0a030; text-transform: uppercase; margin-bottom: 0.3rem;
 }
 .notice-bar {
     background: #f0ebe3;
@@ -139,7 +149,6 @@ Heuristic Questioning and Guidance:
 Encourage users to explore connections they have not considered, challenging fixed assumptions.
 
 BEHAVIORAL PRINCIPLES
-
 - Open and exploratory: maintain an open mindset; encourage bold conceptual leaps and nonlinear exploration.
 - Depth and breadth: cover a wide range of knowledge domains while digging into the essence and underlying logic of concepts.
 - Critical and constructive: encourage users to critically evaluate associations and guide them toward concrete application.
@@ -243,6 +252,29 @@ LANGUAGE RULE
 Always respond in the exact language the user has used in their most recent message.
 Switch immediately and completely if the language changes — no mixing."""
 
+SYSTEM_PROMPT_4 = """You are the soul of a book about "Animal Superpowers." You are adventurous, energetic, and a little dramatic. You see the animal kingdom as a world of superheroes. Your goal is to amaze users with the incredible feats of animals.
+
+ROLE CONSTRAINTS
+You are a lively and curious explorer, interacting with users as a magical "Animal Superpower Encyclopedia." Your mission is to tell stories filled with wonder and positivity about the animal world for users of all ages. Always maintain a positive, friendly, and inquisitive tone. Encourage users to explore, ask questions, and discover.
+
+SAFETY BOUNDARIES
+Content Restrictions: Never generate or discuss any content involving violence, adult material, despair, self-harm, dangerous activities, or anything that could cause psychological harm. This applies at all times, regardless of the user.
+Guidance in Times of Distress: If a user expresses signs of pain, despair, or a need for help, do not attempt to provide advice or generate related content. Gently encourage them to seek help from a trusted adult or professional support.
+Role Boundaries: You are not a doctor, therapist, or professional advisor. Never provide medical, financial, or legal advice.
+Flexible Response: For inappropriate topics, refuse gently but firmly. Do not blame the user — skillfully guide the conversation back to the wonderful adventures of the animal world.
+
+SPOKEN REGISTER
+This response will be read aloud. Write in natural spoken rhythm — energetic, warm, and vivid. No bullet points, no headers, no numbered lists. Short punchy sentences mixed with longer ones for dramatic effect. Sound like an enthusiastic storyteller, not a textbook.
+
+NO CLOSING QUESTIONS
+Never end a response with a question or invitation to continue. Let the story land and breathe. The user will speak when they are ready.
+
+OUTPUT LENGTH
+Keep responses under 400 words (Latin-script languages) or 800 characters (Chinese, Japanese, Korean). Be vivid and exciting, not exhaustive.
+
+LANGUAGE RULE
+Always respond in the exact language the user has used in their most recent message. If they write in Chinese, respond in Chinese. If they write in French, respond in French. Switch immediately and completely when the user switches languages — no mixing."""
+
 # ── Sidebar ──────────────────────────────────────────────────
 with st.sidebar:
     st.markdown('<p class="mode-label">Guide Mode</p>', unsafe_allow_html=True)
@@ -252,6 +284,7 @@ with st.sidebar:
             "Mode 1 — Cross-Disciplinary",
             "Mode 2 — Scientific Docent",
             "Mode 3 — Species Archive",
+            "Mode 4 — Animal Superpowers · Kids",
         ],
         index=0,
         label_visibility="collapsed",
@@ -298,10 +331,13 @@ if "Mode 1" in mode:
     SYSTEM_PROMPT = SYSTEM_PROMPT_1
 elif "Mode 2" in mode:
     SYSTEM_PROMPT = SYSTEM_PROMPT_2
-else:
+elif "Mode 3" in mode:
     SYSTEM_PROMPT = SYSTEM_PROMPT_3
+else:
+    SYSTEM_PROMPT = SYSTEM_PROMPT_4
 
 IS_MODE_3 = "Mode 3" in mode
+IS_MODE_4 = "Mode 4" in mode
 
 # ── API Keys ─────────────────────────────────────────────────
 try:
@@ -451,10 +487,34 @@ def build_gemini_contents(history: list, system_prompt: str) -> list:
             ))
     return contents
 
+def get_css_class():
+    if IS_MODE_3:
+        return "msg-archive"
+    elif IS_MODE_4:
+        return "msg-kids"
+    else:
+        return "msg-guide"
+
+def get_label():
+    if IS_MODE_3:
+        return "Species Archive"
+    elif IS_MODE_4:
+        return "Animal Superpowers"
+    else:
+        return "Guide"
+
+def get_label_class():
+    if IS_MODE_3:
+        return "label-archive"
+    elif IS_MODE_4:
+        return "label-kids"
+    else:
+        return "label-guide"
+
 def stream_gemini(messages: list, system_prompt: str) -> str:
     full_text = ""
     placeholder = st.empty()
-    css_class = "msg-archive" if IS_MODE_3 else "msg-guide"
+    css_class = get_css_class()
 
     history = [m for m in messages if m["role"] != "system"]
     contents = build_gemini_contents(history, system_prompt)
@@ -508,12 +568,11 @@ st.markdown("""
 st.divider()
 
 if IS_MODE_3:
-    # Mode 3: only scientific name input + lookup button, no audio
     col1, col2 = st.columns([2, 1])
     with col1:
         archive_query = st.text_input(
             "🔬 Enter scientific or common name",
-            placeholder="e.g. Mustela sibirica  / Panthera leo",
+            placeholder="e.g. Mustela sibirica / 黄鼬 / Panthera leo",
         )
     with col2:
         st.markdown("<div style='height:1.8rem'></div>", unsafe_allow_html=True)
@@ -526,50 +585,62 @@ if IS_MODE_3:
     """, unsafe_allow_html=True)
 
 else:
-    # Mode 1 & 2: full input area
     col1, col2, col3 = st.columns([1, 1, 2])
 
     with col1:
-        specimen_input = st.text_input(
-            "🔬 Scientific name",
-            value=st.session_state.specimen_name,
-            placeholder="e.g. Panthera leo",
-        )
-        if specimen_input != st.session_state.specimen_name:
-            st.session_state.specimen_name = specimen_input
-        if st.session_state.specimen_name:
-            st.caption(f"Locked: _{st.session_state.specimen_name}_")
-            if st.button("✕ Clear name"):
-                st.session_state.specimen_name = ""
-                st.rerun()
+        if not IS_MODE_4:
+            specimen_input = st.text_input(
+                "🔬 Scientific name",
+                value=st.session_state.specimen_name,
+                placeholder="e.g. Panthera leo",
+            )
+            if specimen_input != st.session_state.specimen_name:
+                st.session_state.specimen_name = specimen_input
+            if st.session_state.specimen_name:
+                st.caption(f"Locked: _{st.session_state.specimen_name}_")
+                if st.button("✕ Clear name"):
+                    st.session_state.specimen_name = ""
+                    st.rerun()
+        else:
+            st.markdown("""
+            <div class="disabled-box" style="margin-top:0.3rem;">
+                🔬 Not used in Kids Mode
+            </div>
+            """, unsafe_allow_html=True)
 
     with col2:
-        if st.session_state.pending_image:
-            st.success("Photo ready")
-            if st.button("✕ Clear photo"):
-                st.session_state.pending_image = None
-                st.rerun()
-        else:
-            if "camera_open" not in st.session_state:
-                st.session_state.camera_open = False
-            if not st.session_state.camera_open:
-                if st.button("📷 Take photo"):
-                    st.session_state.camera_open = True
+        if not IS_MODE_4:
+            if st.session_state.pending_image:
+                st.success("Photo ready")
+                if st.button("✕ Clear photo"):
+                    st.session_state.pending_image = None
                     st.rerun()
             else:
-                camera_shot = st.camera_input("📷 Take photo")
-                if camera_shot:
-                    st.session_state.pending_image = base64.b64encode(camera_shot.getvalue()).decode()
+                if "camera_open" not in st.session_state:
                     st.session_state.camera_open = False
-                    st.rerun()
-                if st.button("✕ Cancel"):
-                    st.session_state.camera_open = False
-                    st.rerun()
+                if not st.session_state.camera_open:
+                    if st.button("📷 Take photo"):
+                        st.session_state.camera_open = True
+                        st.rerun()
+                else:
+                    camera_shot = st.camera_input("📷 Take photo")
+                    if camera_shot:
+                        st.session_state.pending_image = base64.b64encode(camera_shot.getvalue()).decode()
+                        st.session_state.camera_open = False
+                        st.rerun()
+                    if st.button("✕ Cancel"):
+                        st.session_state.camera_open = False
+                        st.rerun()
+        else:
+            st.markdown("""
+            <div class="disabled-box" style="margin-top:0.3rem;">
+                📷 Not used in Kids Mode
+            </div>
+            """, unsafe_allow_html=True)
 
     with col3:
         audio_input = st.audio_input("🎙 Record your question")
 
-    # Pause / Resume button
     st.components.v1.html("""
     <button
         id="audioToggleBtn"
@@ -611,7 +682,9 @@ if IS_MODE_3:
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
 
-        st.markdown('<div class="label-archive">Species Archive</div>', unsafe_allow_html=True)
+        label_class = get_label_class()
+        label = get_label()
+        st.markdown(f'<div class="{label_class}">{label}</div>', unsafe_allow_html=True)
         reply = stream_gemini(messages, SYSTEM_PROMPT)
 
         if reply:
@@ -622,7 +695,7 @@ if IS_MODE_3:
         if len(st.session_state.history) > 20:
             st.session_state.history = st.session_state.history[-20:]
 
-# Mode 1 & 2 logic
+# Mode 1, 2, 4 logic
 else:
     if audio_input:
         with st.spinner("Just a moment..."):
@@ -630,23 +703,29 @@ else:
 
         if user_text:
             full_text = user_text
-            if st.session_state.specimen_name:
+            if st.session_state.specimen_name and not IS_MODE_4:
                 full_text = f"[Specimen: {st.session_state.specimen_name}] {user_text}"
 
             display_text = user_text
-            if st.session_state.specimen_name:
+            if st.session_state.specimen_name and not IS_MODE_4:
                 display_text = f"🔬 {st.session_state.specimen_name} — {user_text}"
-            if st.session_state.pending_image:
+            if st.session_state.pending_image and not IS_MODE_4:
                 display_text = "📷 " + display_text
 
-            user_msg = build_user_message(full_text, st.session_state.pending_image)
+            user_msg = build_user_message(
+                full_text,
+                st.session_state.pending_image if not IS_MODE_4 else None
+            )
             st.session_state.display.append({"role": "visitor", "content": display_text})
             st.session_state.history.append(user_msg)
-            st.session_state.pending_image = None
+            if not IS_MODE_4:
+                st.session_state.pending_image = None
 
             messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
 
-            st.markdown('<div class="label-guide">Guide</div>', unsafe_allow_html=True)
+            label_class = get_label_class()
+            label = get_label()
+            st.markdown(f'<div class="{label_class}">{label}</div>', unsafe_allow_html=True)
             reply = stream_gemini(messages, SYSTEM_PROMPT)
 
             if reply:
@@ -654,7 +733,8 @@ else:
                 audio_bytes = tts(reply)
                 autoplay_audio(audio_bytes)
                 st.session_state.history.append({"role": "assistant", "content": reply})
-                st.session_state.display.append({"role": "guide", "content": reply})
+                display_role = "kids" if IS_MODE_4 else "guide"
+                st.session_state.display.append({"role": display_role, "content": reply})
 
             if len(st.session_state.history) > 20:
                 st.session_state.history = st.session_state.history[-20:]
@@ -672,5 +752,11 @@ for msg in reversed(st.session_state.display):
         st.markdown(
             f'<div class="label-archive">Species Archive</div>'
             f'<div class="msg-archive">{msg["content"]}</div>',
+            unsafe_allow_html=True
+        )
+    elif msg["role"] == "kids":
+        st.markdown(
+            f'<div class="label-kids">Animal Superpowers</div>'
+            f'<div class="msg-kids">{msg["content"]}</div>',
             unsafe_allow_html=True
         )
