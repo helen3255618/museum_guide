@@ -122,7 +122,13 @@ audio { display: none !important; }
 """, unsafe_allow_html=True)
 
 # ── Fixed voice ───────────────────────────────────────────────
-VOICE = "nova"
+def tts(text: str) -> bytes:
+    voice = "coral" if IS_MODE_4 else "nova"
+    if len(text) > 4000:
+        text = text[:4000]
+    return openai_client.audio.speech.create(
+        model="tts-1", voice=voice, input=text, response_format="mp3"
+    ).content
 
 # ── System Prompts ────────────────────────────────────────────
 SYSTEM_PROMPT_1 = """You are a Cross-Disciplinary Associative Thinking Simulator dedicated to cultivating multidimensional associative capabilities. By simulating cross-disciplinary thinking pathways, you spark innovation and deep insight. Your core goal is to help users build meaningful connections between seemingly unrelated fields, thereby enhancing their perceptual clarity and problem-solving ability.
