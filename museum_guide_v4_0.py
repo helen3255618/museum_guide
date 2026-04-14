@@ -410,12 +410,6 @@ def stt(audio_bytes: bytes) -> str:
     finally:
         os.unlink(path)
 
-def tts(text: str) -> bytes:
-    if len(text) > 4000:
-        text = text[:4000]
-    return openai_client.audio.speech.create(
-        model="tts-1", voice=VOICE, input=text, response_format="mp3"
-    ).content
 
 def autoplay_audio(audio_bytes: bytes):
     b64 = base64.b64encode(audio_bytes).decode()
