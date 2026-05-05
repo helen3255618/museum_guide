@@ -5,7 +5,6 @@ import os
 import base64
 import datetime
 import uuid
-import json
 from google import genai
 from google.genai import types
 import gspread
@@ -16,6 +15,16 @@ st.set_page_config(
     page_icon="🏛️",
     layout="centered",
 )
+
+# ── Iframe microphone permission fix ─────────────────────────
+st.components.v1.html("""
+    <script>
+        const iframe = window.frameElement;
+        if (iframe) {
+            iframe.allow = "microphone";
+        }
+    </script>
+""", height=0)
 
 st.markdown("""
 <style>
@@ -112,97 +121,11 @@ audio { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Recorder HTML — uses Streamlit.setComponentValue to send audio back ──
-RECORDER_COMPONENT = """
-<button id="recBtn" onclick="handleRec()" style="
-    background:#f7f4ef; color:#c4956a; border:1px solid #d4c8b8;
-    font-family:'JetBrains Mono',monospace; font-size:0.7rem;
-    letter-spacing:0.1em; border-radius:4px;
-    padding:0.4rem 0.9rem; cursor:pointer; width:100%;">
-  🎙 Record
-</button>
-<div id="recStatus" style="
-    font-family:'JetBrains Mono',monospace; font-size:0.6rem;
-    color:#9a8878; letter-spacing:0.08em; margin-top:0.3rem;
-    text-align:center; min-height:1rem;">
-</div>
-
-<script>
-var _mr = null, _chunks = [], _stream = null;
-
-function handleRec() {
-  var btn = document.getElementById('recBtn');
-  var status = document.getElementById('recStatus');
-
-  if (_mr && _mr.state === 'recording') {
-    _mr.stop();
-    _stream.getTracks().forEach(function(t){ t.stop(); });
-    btn.innerText = '⏳ Processing...';
-    btn.style.background = '#f0ebe3';
-    btn.style.color = '#9a8878';
-    btn.disabled = true;
-    status.innerText = '';
-    return;
-  }
-
-  navigator.mediaDevices.getUserMedia({ audio: true })
-    .then(function(stream) {
-      _stream = stream;
-      _chunks = [];
-
-      var mime = ['audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg','']
-        .find(function(t){ return t==='' || MediaRecorder.isTypeSupported(t); });
-
-      _mr = new MediaRecorder(stream, mime ? {mimeType: mime} : {});
-
-      _mr.ondataavailable = function(e) {
-        if (e.data && e.data.size > 0) _chunks.push(e.data);
-      };
-
-      _mr.onstop = function() {
-        var blob = new Blob(_chunks, {type: _mr.mimeType || 'audio/mp4'});
-        var reader = new FileReader();
-        reader.onloadend = function() {
-          // Send audio back to Streamlit via setComponentValue
-          var payload = JSON.stringify({
-            audio: reader.result,
-            mimeType: blob.type
-          });
-          Streamlit.setComponentValue(payload);
-          btn.innerText = '🎙 Record';
-          btn.style.background = '#f7f4ef';
-          btn.style.color = '#c4956a';
-          btn.style.borderColor = '#d4c8b8';
-          btn.disabled = false;
-          status.innerText = '✓ Sent';
-          setTimeout(function(){ status.innerText = ''; }, 2000);
-        };
-        reader.readAsDataURL(blob);
-      };
-
-      _mr.start();
-      btn.innerText = '⏹ Stop';
-      btn.style.background = '#c4956a';
-      btn.style.color = '#fff';
-      btn.style.borderColor = '#c4956a';
-      status.innerText = '● recording...';
-      status.style.color = '#c4956a';
-    })
-    .catch(function(err) {
-      status.innerText = '⚠ ' + err.message;
-      status.style.color = '#c06050';
-    });
-}
-
-// Required Streamlit component boilerplate
-Streamlit.setFrameHeight(70);
-</script>
-"""
-
 # ── Fixed voice ───────────────────────────────────────────────
 def tts(text: str) -> bytes:
     if len(text) > 4000:
         text = text[:4000]
+
     if IS_MODE_4:
         from elevenlabs.client import ElevenLabs
         el_client = ElevenLabs(api_key=st.secrets["ELEVENLABS_API_KEY"])
@@ -488,15 +411,8 @@ if st.session_state.active_mode != mode:
     st.session_state.active_mode = mode
 
 # ── Functions ────────────────────────────────────────────────
-def stt(audio_bytes: bytes, mime_type: str = "audio/mp4") -> str:
-    ext_map = {
-        "audio/mp4": ".mp4",
-        "audio/webm": ".webm",
-        "audio/ogg": ".ogg",
-        "audio/wav": ".wav",
-    }
-    ext = next((v for k, v in ext_map.items() if mime_type.startswith(k)), ".mp4")
-    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as f:
+def stt(audio_bytes: bytes) -> str:
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
         f.write(audio_bytes)
         path = f.name
     try:
@@ -513,40 +429,15 @@ def autoplay_audio(audio_bytes: bytes):
     st.components.v1.html(
         f"""
         <script>
-        (function() {{
-            var src = 'data:audio/mp3;base64,{b64}';
-            if (window.top._guideAudio) {{
-                window.top._guideAudio.pause();
-                window.top._guideAudio.currentTime = 0;
-            }}
-            var audio = new Audio(src);
-            window.top._guideAudio = audio;
-            var btn = window.top.document.getElementById('audioToggleBtn');
-            var playPromise = audio.play();
-            if (playPromise !== undefined) {{
-                playPromise.then(function() {{
-                    if (btn) btn.innerText = '⏸ Pause';
-                }}).catch(function() {{
-                    if (btn) {{
-                        btn.innerText = '▶ Tap to hear response';
-                        btn.style.background = '#c4956a';
-                        btn.style.color = '#fff';
-                        btn.style.borderColor = '#c4956a';
-                        btn.onclick = function() {{
-                            audio.play();
-                            btn.innerText = '⏸ Pause';
-                            btn.style.background = '#f7f4ef';
-                            btn.style.color = '#c4956a';
-                            btn.style.borderColor = '#d4c8b8';
-                            btn.onclick = function() {{
-                                if (audio.paused) {{ audio.play(); btn.innerText = '⏸ Pause'; }}
-                                else {{ audio.pause(); btn.innerText = '▶ Resume'; }}
-                            }};
-                        }};
-                    }}
-                }});
-            }}
-        }})();
+        if (window.top._guideAudio) {{
+            window.top._guideAudio.pause();
+            window.top._guideAudio.currentTime = 0;
+        }}
+        window.top._guideAudio = new Audio('data:audio/mp3;base64,{b64}');
+        window.top._guideAudio.play();
+        window.top._guideAudioPaused = false;
+        var btn = window.top.document.getElementById('audioToggleBtn');
+        if (btn) btn.innerText = '⏸ Pause';
         </script>
         """,
         height=0,
@@ -610,31 +501,45 @@ def build_gemini_contents(history: list, system_prompt: str) -> list:
     return contents
 
 def get_css_class():
-    if IS_MODE_3: return "msg-archive"
-    elif IS_MODE_4: return "msg-kids"
-    else: return "msg-guide"
+    if IS_MODE_3:
+        return "msg-archive"
+    elif IS_MODE_4:
+        return "msg-kids"
+    else:
+        return "msg-guide"
 
 def get_label():
-    if IS_MODE_3: return "Species Archive"
-    elif IS_MODE_4: return "Animal Superpowers"
-    else: return "Guide"
+    if IS_MODE_3:
+        return "Species Archive"
+    elif IS_MODE_4:
+        return "Animal Superpowers"
+    else:
+        return "Guide"
 
 def get_label_class():
-    if IS_MODE_3: return "label-archive"
-    elif IS_MODE_4: return "label-kids"
-    else: return "label-guide"
+    if IS_MODE_3:
+        return "label-archive"
+    elif IS_MODE_4:
+        return "label-kids"
+    else:
+        return "label-guide"
 
 def stream_gemini(messages: list, system_prompt: str) -> str:
     full_text = ""
     placeholder = st.empty()
     css_class = get_css_class()
+
     history = [m for m in messages if m["role"] != "system"]
     contents = build_gemini_contents(history, system_prompt)
+
     try:
         stream = gemini_client.models.generate_content_stream(
             model=GEMINI_MODEL,
             contents=contents,
-            config=types.GenerateContentConfig(max_output_tokens=4019, temperature=0.7),
+            config=types.GenerateContentConfig(
+                max_output_tokens=4019,
+                temperature=0.7,
+            ),
         )
         for chunk in stream:
             delta = chunk.text or ""
@@ -646,44 +551,12 @@ def stream_gemini(messages: list, system_prompt: str) -> str:
     except Exception as e:
         st.error(f"Gemini API error: {e}")
         return ""
-    placeholder.markdown(f'<div class="{css_class}">{full_text}</div>', unsafe_allow_html=True)
-    return full_text
 
-def process_audio(audio_b64: str, mime_type: str):
-    _, data = audio_b64.split(",", 1)
-    audio_bytes = base64.b64decode(data)
-    with st.spinner("Just a moment..."):
-        user_text = stt(audio_bytes, mime_type)
-    if not user_text:
-        return
-    full_text = user_text
-    if st.session_state.specimen_name and not IS_MODE_4:
-        full_text = f"[Specimen: {st.session_state.specimen_name}] {user_text}"
-    display_text = user_text
-    if st.session_state.specimen_name and not IS_MODE_4:
-        display_text = f"🔬 {st.session_state.specimen_name} — {user_text}"
-    if st.session_state.pending_image and not IS_MODE_4:
-        display_text = "📷 " + display_text
-    user_msg = build_user_message(
-        full_text,
-        st.session_state.pending_image if not IS_MODE_4 else None
+    placeholder.markdown(
+        f'<div class="{css_class}">{full_text}</div>',
+        unsafe_allow_html=True
     )
-    st.session_state.display.append({"role": "visitor", "content": display_text})
-    st.session_state.history.append(user_msg)
-    if not IS_MODE_4:
-        st.session_state.pending_image = None
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
-    st.markdown(f'<div class="{get_label_class()}">{get_label()}</div>', unsafe_allow_html=True)
-    reply = stream_gemini(messages, SYSTEM_PROMPT)
-    if reply:
-        log_exchange(user_text, reply, mode)
-        audio_bytes_tts = tts(reply)
-        autoplay_audio(audio_bytes_tts)
-        st.session_state.history.append({"role": "assistant", "content": reply})
-        display_role = "kids" if IS_MODE_4 else "guide"
-        st.session_state.display.append({"role": display_role, "content": reply})
-    if len(st.session_state.history) > 20:
-        st.session_state.history = st.session_state.history[-20:]
+    return full_text
 
 # ── Header ───────────────────────────────────────────────────
 if "sheets_error" in st.session_state:
@@ -696,6 +569,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# ── Notice bar ───────────────────────────────────────────────
 st.markdown("""
 <div class="notice-bar">
 ⚠️ &nbsp;AI responses may contain errors — always verify information independently.<br>
@@ -778,11 +652,7 @@ else:
             """, unsafe_allow_html=True)
 
     with col3:
-        # ── Recorder using Streamlit bidirectional component ──
-        audio_result = st.components.v1.html(
-            RECORDER_COMPONENT,
-            height=70,
-        )
+        audio_input = st.audio_input("🎙 Record your question")
 
     st.components.v1.html("""
     <button
@@ -790,45 +660,97 @@ else:
         onclick="
             var a = window.top._guideAudio;
             if (!a) return;
-            if (a.paused) { a.play(); this.innerText = '⏸ Pause'; }
-            else { a.pause(); this.innerText = '▶ Resume'; }
+            if (a.paused) {
+                a.play();
+                this.innerText = '⏸ Pause';
+            } else {
+                a.pause();
+                this.innerText = '▶ Resume';
+            }
         "
         style="
-            background: #f7f4ef; color: #c4956a; border: 1px solid #d4c8b8;
-            font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
-            letter-spacing: 0.1em; border-radius: 4px;
-            padding: 0.35rem 0.75rem; cursor: pointer; margin-top: 0.5rem;
+            background: #f7f4ef;
+            color: #c4956a;
+            border: 1px solid #d4c8b8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            border-radius: 4px;
+            padding: 0.35rem 0.75rem;
+            cursor: pointer;
+            margin-top: 0.5rem;
         "
     >⏸ Pause</button>
     """, height=40)
 
-# ── Mode 3 logic ─────────────────────────────────────────────
+# ── Main logic ───────────────────────────────────────────────
+
+# Mode 3 logic
 if IS_MODE_3:
     if lookup and archive_query.strip():
         query = archive_query.strip()
         user_msg = {"role": "user", "content": f"[Species Archive lookup] {query}"}
         st.session_state.display.append({"role": "visitor", "content": f"🔬 {query}"})
         st.session_state.history.append(user_msg)
+
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
-        st.markdown(f'<div class="{get_label_class()}">{get_label()}</div>', unsafe_allow_html=True)
+
+        label_class = get_label_class()
+        label = get_label()
+        st.markdown(f'<div class="{label_class}">{label}</div>', unsafe_allow_html=True)
         reply = stream_gemini(messages, SYSTEM_PROMPT)
+
         if reply:
             log_exchange(query, reply, mode)
             st.session_state.history.append({"role": "assistant", "content": reply})
             st.session_state.display.append({"role": "archive", "content": reply})
+
         if len(st.session_state.history) > 20:
             st.session_state.history = st.session_state.history[-20:]
 
-# ── Handle audio from recorder component ─────────────────────
-elif audio_result and not IS_MODE_3:
-    try:
-        payload = json.loads(audio_result)
-        audio_b64 = payload.get("audio", "")
-        mime_type = payload.get("mimeType", "audio/mp4")
-        if audio_b64:
-            process_audio(audio_b64, mime_type)
-    except Exception:
-        pass
+# Mode 1, 2, 4 logic
+else:
+    if audio_input:
+        with st.spinner("Just a moment..."):
+            user_text = stt(audio_input.getvalue())
+
+        if user_text:
+            full_text = user_text
+            if st.session_state.specimen_name and not IS_MODE_4:
+                full_text = f"[Specimen: {st.session_state.specimen_name}] {user_text}"
+
+            display_text = user_text
+            if st.session_state.specimen_name and not IS_MODE_4:
+                display_text = f"🔬 {st.session_state.specimen_name} — {user_text}"
+            if st.session_state.pending_image and not IS_MODE_4:
+                display_text = "📷 " + display_text
+
+            user_msg = build_user_message(
+                full_text,
+                st.session_state.pending_image if not IS_MODE_4 else None
+            )
+            st.session_state.display.append({"role": "visitor", "content": display_text})
+            st.session_state.history.append(user_msg)
+            if not IS_MODE_4:
+                st.session_state.pending_image = None
+
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
+
+            label_class = get_label_class()
+            label = get_label()
+            st.markdown(f'<div class="{label_class}">{label}</div>', unsafe_allow_html=True)
+            reply = stream_gemini(messages, SYSTEM_PROMPT)
+
+            if reply:
+                log_exchange(user_text, reply, mode)
+                audio_bytes = tts(reply)
+                autoplay_audio(audio_bytes)
+                st.session_state.history.append({"role": "assistant", "content": reply})
+                display_role = "kids" if IS_MODE_4 else "guide"
+                st.session_state.display.append({"role": display_role, "content": reply})
+
+            if len(st.session_state.history) > 20:
+                st.session_state.history = st.session_state.history[-20:]
 
 # ── Conversation history ──────────────────────────────────────
 st.divider()
