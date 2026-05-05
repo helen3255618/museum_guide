@@ -5,6 +5,7 @@ import os
 import base64
 import datetime
 import uuid
+import json
 from google import genai
 from google.genai import types
 import gspread
@@ -15,29 +16,6 @@ st.set_page_config(
     page_icon="🏛️",
     layout="centered",
 )
-
-# ── Iframe microphone permission fix ─────────────────────────
-st.components.v1.html("""
-    <script>
-    (function() {
-        function patchIframes() {
-            try {
-                var iframes = window.parent.document.querySelectorAll('iframe');
-                iframes.forEach(function(f) {
-                    var current = f.getAttribute('allow') || '';
-                    if (!current.includes('microphone')) {
-                        f.setAttribute('allow', current ? current + '; microphone' : 'microphone');
-                    }
-                });
-            } catch(e) {}
-        }
-        patchIframes();
-        setTimeout(patchIframes, 500);
-        setTimeout(patchIframes, 1500);
-        setTimeout(patchIframes, 3000);
-    })();
-    </script>
-""", height=0)
 
 st.markdown("""
 <style>
@@ -134,11 +112,13 @@ audio { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
+# ── Vercel recorder URL (set this in Streamlit Secrets as RECORDER_URL) ──
+RECORDER_URL = st.secrets.get("RECORDER_URL", "https://your-recorder.vercel.app")
+
 # ── Fixed voice ───────────────────────────────────────────────
 def tts(text: str) -> bytes:
     if len(text) > 4000:
         text = text[:4000]
-
     if IS_MODE_4:
         from elevenlabs.client import ElevenLabs
         el_client = ElevenLabs(api_key=st.secrets["ELEVENLABS_API_KEY"])
@@ -424,8 +404,15 @@ if st.session_state.active_mode != mode:
     st.session_state.active_mode = mode
 
 # ── Functions ────────────────────────────────────────────────
-def stt(audio_bytes: bytes) -> str:
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+def stt(audio_bytes: bytes, mime_type: str = "audio/webm") -> str:
+    ext_map = {
+        "audio/webm": ".webm",
+        "audio/mp4": ".mp4",
+        "audio/ogg": ".ogg",
+        "audio/wav": ".wav",
+    }
+    ext = next((v for k, v in ext_map.items() if mime_type.startswith(k)), ".webm")
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as f:
         f.write(audio_bytes)
         path = f.name
     try:
@@ -444,24 +431,18 @@ def autoplay_audio(audio_bytes: bytes):
         <script>
         (function() {{
             var src = 'data:audio/mp3;base64,{b64}';
-
             if (window.top._guideAudio) {{
                 window.top._guideAudio.pause();
                 window.top._guideAudio.currentTime = 0;
             }}
-
             var audio = new Audio(src);
             window.top._guideAudio = audio;
-            window.top._guideAudioPaused = false;
-
             var btn = window.top.document.getElementById('audioToggleBtn');
-
             var playPromise = audio.play();
             if (playPromise !== undefined) {{
                 playPromise.then(function() {{
                     if (btn) btn.innerText = '⏸ Pause';
                 }}).catch(function() {{
-                    // iOS blocked autoplay — show tap-to-play prompt
                     if (btn) {{
                         btn.innerText = '▶ Tap to hear response';
                         btn.style.background = '#c4956a';
@@ -474,13 +455,8 @@ def autoplay_audio(audio_bytes: bytes):
                             btn.style.color = '#c4956a';
                             btn.style.borderColor = '#d4c8b8';
                             btn.onclick = function() {{
-                                if (audio.paused) {{
-                                    audio.play();
-                                    btn.innerText = '⏸ Pause';
-                                }} else {{
-                                    audio.pause();
-                                    btn.innerText = '▶ Resume';
-                                }}
+                                if (audio.paused) {{ audio.play(); btn.innerText = '⏸ Pause'; }}
+                                else {{ audio.pause(); btn.innerText = '▶ Resume'; }}
                             }};
                         }};
                     }}
@@ -550,45 +526,31 @@ def build_gemini_contents(history: list, system_prompt: str) -> list:
     return contents
 
 def get_css_class():
-    if IS_MODE_3:
-        return "msg-archive"
-    elif IS_MODE_4:
-        return "msg-kids"
-    else:
-        return "msg-guide"
+    if IS_MODE_3: return "msg-archive"
+    elif IS_MODE_4: return "msg-kids"
+    else: return "msg-guide"
 
 def get_label():
-    if IS_MODE_3:
-        return "Species Archive"
-    elif IS_MODE_4:
-        return "Animal Superpowers"
-    else:
-        return "Guide"
+    if IS_MODE_3: return "Species Archive"
+    elif IS_MODE_4: return "Animal Superpowers"
+    else: return "Guide"
 
 def get_label_class():
-    if IS_MODE_3:
-        return "label-archive"
-    elif IS_MODE_4:
-        return "label-kids"
-    else:
-        return "label-guide"
+    if IS_MODE_3: return "label-archive"
+    elif IS_MODE_4: return "label-kids"
+    else: return "label-guide"
 
 def stream_gemini(messages: list, system_prompt: str) -> str:
     full_text = ""
     placeholder = st.empty()
     css_class = get_css_class()
-
     history = [m for m in messages if m["role"] != "system"]
     contents = build_gemini_contents(history, system_prompt)
-
     try:
         stream = gemini_client.models.generate_content_stream(
             model=GEMINI_MODEL,
             contents=contents,
-            config=types.GenerateContentConfig(
-                max_output_tokens=4019,
-                temperature=0.7,
-            ),
+            config=types.GenerateContentConfig(max_output_tokens=4019, temperature=0.7),
         )
         for chunk in stream:
             delta = chunk.text or ""
@@ -600,12 +562,54 @@ def stream_gemini(messages: list, system_prompt: str) -> str:
     except Exception as e:
         st.error(f"Gemini API error: {e}")
         return ""
-
-    placeholder.markdown(
-        f'<div class="{css_class}">{full_text}</div>',
-        unsafe_allow_html=True
-    )
+    placeholder.markdown(f'<div class="{css_class}">{full_text}</div>', unsafe_allow_html=True)
     return full_text
+
+def process_audio(audio_b64: str, mime_type: str):
+    """Decode base64 audio from recorder, run full pipeline."""
+    _, data = audio_b64.split(",", 1)
+    audio_bytes = base64.b64decode(data)
+
+    with st.spinner("Just a moment..."):
+        user_text = stt(audio_bytes, mime_type)
+
+    if not user_text:
+        return
+
+    full_text = user_text
+    if st.session_state.specimen_name and not IS_MODE_4:
+        full_text = f"[Specimen: {st.session_state.specimen_name}] {user_text}"
+
+    display_text = user_text
+    if st.session_state.specimen_name and not IS_MODE_4:
+        display_text = f"🔬 {st.session_state.specimen_name} — {user_text}"
+    if st.session_state.pending_image and not IS_MODE_4:
+        display_text = "📷 " + display_text
+
+    user_msg = build_user_message(
+        full_text,
+        st.session_state.pending_image if not IS_MODE_4 else None
+    )
+    st.session_state.display.append({"role": "visitor", "content": display_text})
+    st.session_state.history.append(user_msg)
+    if not IS_MODE_4:
+        st.session_state.pending_image = None
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
+
+    st.markdown(f'<div class="{get_label_class()}">{get_label()}</div>', unsafe_allow_html=True)
+    reply = stream_gemini(messages, SYSTEM_PROMPT)
+
+    if reply:
+        log_exchange(user_text, reply, mode)
+        audio_bytes_tts = tts(reply)
+        autoplay_audio(audio_bytes_tts)
+        st.session_state.history.append({"role": "assistant", "content": reply})
+        display_role = "kids" if IS_MODE_4 else "guide"
+        st.session_state.display.append({"role": display_role, "content": reply})
+
+    if len(st.session_state.history) > 20:
+        st.session_state.history = st.session_state.history[-20:]
 
 # ── Header ───────────────────────────────────────────────────
 if "sheets_error" in st.session_state:
@@ -618,13 +622,25 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Notice bar ───────────────────────────────────────────────
 st.markdown("""
 <div class="notice-bar">
 ⚠️ &nbsp;AI responses may contain errors — always verify information independently.<br>
 🔒 &nbsp;Your questions and responses are collected anonymously (no personal data) for research purposes only.
 </div>
 """, unsafe_allow_html=True)
+
+# ── Check for audio posted from Vercel recorder via URL param ─
+params = st.query_params
+if "_audio" in params and not IS_MODE_3:
+    try:
+        payload = json.loads(params["_audio"])
+        audio_b64 = payload.get("audio", "")
+        mime_type = payload.get("mimeType", "audio/webm")
+        st.query_params.clear()
+        if audio_b64:
+            process_audio(audio_b64, mime_type)
+    except Exception:
+        st.query_params.clear()
 
 # ── Input area ───────────────────────────────────────────────
 st.divider()
@@ -701,7 +717,26 @@ else:
             """, unsafe_allow_html=True)
 
     with col3:
-        audio_input = st.audio_input("🎙 Record your question")
+        # ── Vercel recorder (replaces st.audio_input, works on iOS) ──
+        recorder_html = f"""
+            <iframe
+                src="{RECORDER_URL}"
+                style="border:none; width:100%; height:50px;"
+                allow="microphone"
+            ></iframe>
+            <script>
+            window.addEventListener('message', function(e) {{
+                if (!e.data || e.data.type !== 'AUDIO_RECORDED') return;
+                var encoded = encodeURIComponent(JSON.stringify({{
+                    audio: e.data.audio,
+                    mimeType: e.data.mimeType
+                }}));
+                var base = window.parent.location.href.split('?')[0];
+                window.parent.location.href = base + '?_audio=' + encoded;
+            }});
+            </script>
+        """
+        st.components.v1.html(recorder_html, height=60)
 
     st.components.v1.html("""
     <button
@@ -709,97 +744,34 @@ else:
         onclick="
             var a = window.top._guideAudio;
             if (!a) return;
-            if (a.paused) {
-                a.play();
-                this.innerText = '⏸ Pause';
-            } else {
-                a.pause();
-                this.innerText = '▶ Resume';
-            }
+            if (a.paused) { a.play(); this.innerText = '⏸ Pause'; }
+            else { a.pause(); this.innerText = '▶ Resume'; }
         "
         style="
-            background: #f7f4ef;
-            color: #c4956a;
-            border: 1px solid #d4c8b8;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
-            letter-spacing: 0.1em;
-            border-radius: 4px;
-            padding: 0.35rem 0.75rem;
-            cursor: pointer;
-            margin-top: 0.5rem;
+            background: #f7f4ef; color: #c4956a; border: 1px solid #d4c8b8;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+            letter-spacing: 0.1em; border-radius: 4px;
+            padding: 0.35rem 0.75rem; cursor: pointer; margin-top: 0.5rem;
         "
     >⏸ Pause</button>
     """, height=40)
 
-# ── Main logic ───────────────────────────────────────────────
-
-# Mode 3 logic
+# ── Mode 3 logic ─────────────────────────────────────────────
 if IS_MODE_3:
     if lookup and archive_query.strip():
         query = archive_query.strip()
         user_msg = {"role": "user", "content": f"[Species Archive lookup] {query}"}
         st.session_state.display.append({"role": "visitor", "content": f"🔬 {query}"})
         st.session_state.history.append(user_msg)
-
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
-
-        label_class = get_label_class()
-        label = get_label()
-        st.markdown(f'<div class="{label_class}">{label}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="{get_label_class()}">{get_label()}</div>', unsafe_allow_html=True)
         reply = stream_gemini(messages, SYSTEM_PROMPT)
-
         if reply:
             log_exchange(query, reply, mode)
             st.session_state.history.append({"role": "assistant", "content": reply})
             st.session_state.display.append({"role": "archive", "content": reply})
-
         if len(st.session_state.history) > 20:
             st.session_state.history = st.session_state.history[-20:]
-
-# Mode 1, 2, 4 logic
-else:
-    if audio_input:
-        with st.spinner("Just a moment..."):
-            user_text = stt(audio_input.getvalue())
-
-        if user_text:
-            full_text = user_text
-            if st.session_state.specimen_name and not IS_MODE_4:
-                full_text = f"[Specimen: {st.session_state.specimen_name}] {user_text}"
-
-            display_text = user_text
-            if st.session_state.specimen_name and not IS_MODE_4:
-                display_text = f"🔬 {st.session_state.specimen_name} — {user_text}"
-            if st.session_state.pending_image and not IS_MODE_4:
-                display_text = "📷 " + display_text
-
-            user_msg = build_user_message(
-                full_text,
-                st.session_state.pending_image if not IS_MODE_4 else None
-            )
-            st.session_state.display.append({"role": "visitor", "content": display_text})
-            st.session_state.history.append(user_msg)
-            if not IS_MODE_4:
-                st.session_state.pending_image = None
-
-            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
-
-            label_class = get_label_class()
-            label = get_label()
-            st.markdown(f'<div class="{label_class}">{label}</div>', unsafe_allow_html=True)
-            reply = stream_gemini(messages, SYSTEM_PROMPT)
-
-            if reply:
-                log_exchange(user_text, reply, mode)
-                audio_bytes = tts(reply)
-                autoplay_audio(audio_bytes)
-                st.session_state.history.append({"role": "assistant", "content": reply})
-                display_role = "kids" if IS_MODE_4 else "guide"
-                st.session_state.display.append({"role": display_role, "content": reply})
-
-            if len(st.session_state.history) > 20:
-                st.session_state.history = st.session_state.history[-20:]
 
 # ── Conversation history ──────────────────────────────────────
 st.divider()
