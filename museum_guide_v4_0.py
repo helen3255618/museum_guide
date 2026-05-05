@@ -112,21 +112,19 @@ audio { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Inline recorder component (iOS-compatible, no iframe needed) ──
+# ── Recorder HTML — uses Streamlit.setComponentValue to send audio back ──
 RECORDER_COMPONENT = """
-<div id="recorder-wrap" style="width:100%;">
-  <button id="recBtn" onclick="handleRec()" style="
+<button id="recBtn" onclick="handleRec()" style="
     background:#f7f4ef; color:#c4956a; border:1px solid #d4c8b8;
     font-family:'JetBrains Mono',monospace; font-size:0.7rem;
     letter-spacing:0.1em; border-radius:4px;
     padding:0.4rem 0.9rem; cursor:pointer; width:100%;">
-    🎙 Record
-  </button>
-  <div id="recStatus" style="
+  🎙 Record
+</button>
+<div id="recStatus" style="
     font-family:'JetBrains Mono',monospace; font-size:0.6rem;
     color:#9a8878; letter-spacing:0.08em; margin-top:0.3rem;
     text-align:center; min-height:1rem;">
-  </div>
 </div>
 
 <script>
@@ -147,7 +145,6 @@ function handleRec() {
     return;
   }
 
-  // Must call getUserMedia synchronously inside click for iOS
   navigator.mediaDevices.getUserMedia({ audio: true })
     .then(function(stream) {
       _stream = stream;
@@ -166,13 +163,19 @@ function handleRec() {
         var blob = new Blob(_chunks, {type: _mr.mimeType || 'audio/mp4'});
         var reader = new FileReader();
         reader.onloadend = function() {
-          // Send to Streamlit via query param → triggers rerun
-          var payload = encodeURIComponent(JSON.stringify({
+          // Send audio back to Streamlit via setComponentValue
+          var payload = JSON.stringify({
             audio: reader.result,
             mimeType: blob.type
-          }));
-          var base = window.parent.location.href.split('?')[0];
-          window.parent.location.href = base + '?_audio=' + payload;
+          });
+          Streamlit.setComponentValue(payload);
+          btn.innerText = '🎙 Record';
+          btn.style.background = '#f7f4ef';
+          btn.style.color = '#c4956a';
+          btn.style.borderColor = '#d4c8b8';
+          btn.disabled = false;
+          status.innerText = '✓ Sent';
+          setTimeout(function(){ status.innerText = ''; }, 2000);
         };
         reader.readAsDataURL(blob);
       };
@@ -186,10 +189,13 @@ function handleRec() {
       status.style.color = '#c4956a';
     })
     .catch(function(err) {
-      status.innerText = '⚠ Mic error: ' + err.message;
+      status.innerText = '⚠ ' + err.message;
       status.style.color = '#c06050';
     });
 }
+
+// Required Streamlit component boilerplate
+Streamlit.setFrameHeight(70);
 </script>
 """
 
@@ -697,19 +703,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Check for audio from recorder via URL param ───────────────
-params = st.query_params
-if "_audio" in params and not IS_MODE_3:
-    try:
-        payload = json.loads(params["_audio"])
-        audio_b64 = payload.get("audio", "")
-        mime_type = payload.get("mimeType", "audio/mp4")
-        st.query_params.clear()
-        if audio_b64:
-            process_audio(audio_b64, mime_type)
-    except Exception:
-        st.query_params.clear()
-
 # ── Input area ───────────────────────────────────────────────
 st.divider()
 
@@ -785,8 +778,11 @@ else:
             """, unsafe_allow_html=True)
 
     with col3:
-        # ── Inline recorder — works on iOS, no external iframe needed ──
-        st.components.v1.html(RECORDER_COMPONENT, height=70)
+        # ── Recorder using Streamlit bidirectional component ──
+        audio_result = st.components.v1.html(
+            RECORDER_COMPONENT,
+            height=70,
+        )
 
     st.components.v1.html("""
     <button
@@ -822,6 +818,17 @@ if IS_MODE_3:
             st.session_state.display.append({"role": "archive", "content": reply})
         if len(st.session_state.history) > 20:
             st.session_state.history = st.session_state.history[-20:]
+
+# ── Handle audio from recorder component ─────────────────────
+elif audio_result and not IS_MODE_3:
+    try:
+        payload = json.loads(audio_result)
+        audio_b64 = payload.get("audio", "")
+        mime_type = payload.get("mimeType", "audio/mp4")
+        if audio_b64:
+            process_audio(audio_b64, mime_type)
+    except Exception:
+        pass
 
 # ── Conversation history ──────────────────────────────────────
 st.divider()
