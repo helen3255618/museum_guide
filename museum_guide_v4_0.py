@@ -558,6 +558,45 @@ def stream_gemini(messages: list, system_prompt: str) -> str:
     )
     return full_text
 
+def handle_text_input(user_text: str):
+    """Shared pipeline for both voice and text input."""
+    full_text = user_text
+    if st.session_state.specimen_name and not IS_MODE_4:
+        full_text = f"[Specimen: {st.session_state.specimen_name}] {user_text}"
+
+    display_text = user_text
+    if st.session_state.specimen_name and not IS_MODE_4:
+        display_text = f"🔬 {st.session_state.specimen_name} — {user_text}"
+    if st.session_state.pending_image and not IS_MODE_4:
+        display_text = "📷 " + display_text
+
+    user_msg = build_user_message(
+        full_text,
+        st.session_state.pending_image if not IS_MODE_4 else None
+    )
+    st.session_state.display.append({"role": "visitor", "content": display_text})
+    st.session_state.history.append(user_msg)
+    if not IS_MODE_4:
+        st.session_state.pending_image = None
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
+
+    label_class = get_label_class()
+    label = get_label()
+    st.markdown(f'<div class="{label_class}">{label}</div>', unsafe_allow_html=True)
+    reply = stream_gemini(messages, SYSTEM_PROMPT)
+
+    if reply:
+        log_exchange(user_text, reply, mode)
+        audio_bytes = tts(reply)
+        autoplay_audio(audio_bytes)
+        st.session_state.history.append({"role": "assistant", "content": reply})
+        display_role = "kids" if IS_MODE_4 else "guide"
+        st.session_state.display.append({"role": display_role, "content": reply})
+
+    if len(st.session_state.history) > 20:
+        st.session_state.history = st.session_state.history[-20:]
+
 # ── Header ───────────────────────────────────────────────────
 if "sheets_error" in st.session_state:
     st.error(st.session_state["sheets_error"])
@@ -683,6 +722,21 @@ else:
     >⏸ Pause</button>
     """, height=40)
 
+    # ── Text input fallback (works with iOS keyboard voice input) ──
+    st.markdown(
+        '<p style="font-family:JetBrains Mono,monospace;font-size:0.6rem;'
+        'letter-spacing:0.12em;color:#9a8878;text-transform:uppercase;'
+        'margin-top:1rem;margin-bottom:0.3rem;">✍️ Or type your question</p>',
+        unsafe_allow_html=True
+    )
+    with st.form(key="text_form", clear_on_submit=True):
+        text_input = st.text_input(
+            label="text question",
+            placeholder="Type or use your keyboard's 🎤 voice input...",
+            label_visibility="collapsed",
+        )
+        text_submitted = st.form_submit_button("→ Send", use_container_width=False)
+
 # ── Main logic ───────────────────────────────────────────────
 
 # Mode 3 logic
@@ -710,47 +764,16 @@ if IS_MODE_3:
 
 # Mode 1, 2, 4 logic
 else:
+    # Voice input
     if audio_input:
         with st.spinner("Just a moment..."):
             user_text = stt(audio_input.getvalue())
-
         if user_text:
-            full_text = user_text
-            if st.session_state.specimen_name and not IS_MODE_4:
-                full_text = f"[Specimen: {st.session_state.specimen_name}] {user_text}"
+            handle_text_input(user_text)
 
-            display_text = user_text
-            if st.session_state.specimen_name and not IS_MODE_4:
-                display_text = f"🔬 {st.session_state.specimen_name} — {user_text}"
-            if st.session_state.pending_image and not IS_MODE_4:
-                display_text = "📷 " + display_text
-
-            user_msg = build_user_message(
-                full_text,
-                st.session_state.pending_image if not IS_MODE_4 else None
-            )
-            st.session_state.display.append({"role": "visitor", "content": display_text})
-            st.session_state.history.append(user_msg)
-            if not IS_MODE_4:
-                st.session_state.pending_image = None
-
-            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
-
-            label_class = get_label_class()
-            label = get_label()
-            st.markdown(f'<div class="{label_class}">{label}</div>', unsafe_allow_html=True)
-            reply = stream_gemini(messages, SYSTEM_PROMPT)
-
-            if reply:
-                log_exchange(user_text, reply, mode)
-                audio_bytes = tts(reply)
-                autoplay_audio(audio_bytes)
-                st.session_state.history.append({"role": "assistant", "content": reply})
-                display_role = "kids" if IS_MODE_4 else "guide"
-                st.session_state.display.append({"role": display_role, "content": reply})
-
-            if len(st.session_state.history) > 20:
-                st.session_state.history = st.session_state.history[-20:]
+    # Text input
+    elif text_submitted and text_input.strip():
+        handle_text_input(text_input.strip())
 
 # ── Conversation history ──────────────────────────────────────
 st.divider()
