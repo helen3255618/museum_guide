@@ -693,6 +693,21 @@ else:
     with col3:
         audio_input = st.audio_input("🎙 Record your question")
 
+    # ── Text input fallback (works with iOS keyboard voice input) ──
+    st.markdown(
+        '<p style="font-family:JetBrains Mono,monospace;font-size:0.6rem;'
+        'letter-spacing:0.12em;color:#9a8878;text-transform:uppercase;'
+        'margin-top:1rem;margin-bottom:0.3rem;">✍️ Or type your question</p>',
+        unsafe_allow_html=True
+    )
+    with st.form(key="text_form", clear_on_submit=True):
+        text_input = st.text_input(
+            label="text question",
+            placeholder="Type or use your keyboard's 🎤 voice input...",
+            label_visibility="collapsed",
+        )
+        text_submitted = st.form_submit_button("→ Send", use_container_width=False)
+
     st.components.v1.html("""
     <button
         id="audioToggleBtn"
@@ -721,21 +736,6 @@ else:
         "
     >⏸ Pause</button>
     """, height=40)
-
-    # ── Text input fallback (works with iOS keyboard voice input) ──
-    st.markdown(
-        '<p style="font-family:JetBrains Mono,monospace;font-size:0.6rem;'
-        'letter-spacing:0.12em;color:#9a8878;text-transform:uppercase;'
-        'margin-top:1rem;margin-bottom:0.3rem;">✍️ Or type your question</p>',
-        unsafe_allow_html=True
-    )
-    with st.form(key="text_form", clear_on_submit=True):
-        text_input = st.text_input(
-            label="text question",
-            placeholder="Type or use your keyboard's 🎤 voice input...",
-            label_visibility="collapsed",
-        )
-        text_submitted = st.form_submit_button("→ Send", use_container_width=False)
 
 # ── Main logic ───────────────────────────────────────────────
 
