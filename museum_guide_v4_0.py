@@ -118,6 +118,7 @@ section[data-testid="stSidebar"] { background: #f0ebe3; border-right: 1px solid 
 }
 .stButton > button:hover { background: #fff; border-color: #c4956a; }
 audio { display: none !important; }
+[data-testid="stForm"] { border: none !important; padding: 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -703,7 +704,7 @@ else:
     with st.form(key="text_form", clear_on_submit=True):
         text_input = st.text_input(
             label="text question",
-            placeholder="Type or use your keyboard's voice input...",
+            placeholder="Type or use your keyboard's 🎤 voice input...",
             label_visibility="collapsed",
         )
         text_submitted = st.form_submit_button("→ Send", use_container_width=False)
