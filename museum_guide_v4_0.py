@@ -112,8 +112,86 @@ audio { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Vercel recorder URL (set this in Streamlit Secrets as RECORDER_URL) ──
-RECORDER_URL = st.secrets.get("RECORDER_URL", "https://your-recorder.vercel.app")
+# ── Inline recorder component (iOS-compatible, no iframe needed) ──
+RECORDER_COMPONENT = """
+<div id="recorder-wrap" style="width:100%;">
+  <button id="recBtn" onclick="handleRec()" style="
+    background:#f7f4ef; color:#c4956a; border:1px solid #d4c8b8;
+    font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+    letter-spacing:0.1em; border-radius:4px;
+    padding:0.4rem 0.9rem; cursor:pointer; width:100%;">
+    🎙 Record
+  </button>
+  <div id="recStatus" style="
+    font-family:'JetBrains Mono',monospace; font-size:0.6rem;
+    color:#9a8878; letter-spacing:0.08em; margin-top:0.3rem;
+    text-align:center; min-height:1rem;">
+  </div>
+</div>
+
+<script>
+var _mr = null, _chunks = [], _stream = null;
+
+function handleRec() {
+  var btn = document.getElementById('recBtn');
+  var status = document.getElementById('recStatus');
+
+  if (_mr && _mr.state === 'recording') {
+    _mr.stop();
+    _stream.getTracks().forEach(function(t){ t.stop(); });
+    btn.innerText = '⏳ Processing...';
+    btn.style.background = '#f0ebe3';
+    btn.style.color = '#9a8878';
+    btn.disabled = true;
+    status.innerText = '';
+    return;
+  }
+
+  // Must call getUserMedia synchronously inside click for iOS
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(function(stream) {
+      _stream = stream;
+      _chunks = [];
+
+      var mime = ['audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg','']
+        .find(function(t){ return t==='' || MediaRecorder.isTypeSupported(t); });
+
+      _mr = new MediaRecorder(stream, mime ? {mimeType: mime} : {});
+
+      _mr.ondataavailable = function(e) {
+        if (e.data && e.data.size > 0) _chunks.push(e.data);
+      };
+
+      _mr.onstop = function() {
+        var blob = new Blob(_chunks, {type: _mr.mimeType || 'audio/mp4'});
+        var reader = new FileReader();
+        reader.onloadend = function() {
+          // Send to Streamlit via query param → triggers rerun
+          var payload = encodeURIComponent(JSON.stringify({
+            audio: reader.result,
+            mimeType: blob.type
+          }));
+          var base = window.parent.location.href.split('?')[0];
+          window.parent.location.href = base + '?_audio=' + payload;
+        };
+        reader.readAsDataURL(blob);
+      };
+
+      _mr.start();
+      btn.innerText = '⏹ Stop';
+      btn.style.background = '#c4956a';
+      btn.style.color = '#fff';
+      btn.style.borderColor = '#c4956a';
+      status.innerText = '● recording...';
+      status.style.color = '#c4956a';
+    })
+    .catch(function(err) {
+      status.innerText = '⚠ Mic error: ' + err.message;
+      status.style.color = '#c06050';
+    });
+}
+</script>
+"""
 
 # ── Fixed voice ───────────────────────────────────────────────
 def tts(text: str) -> bytes:
@@ -404,14 +482,14 @@ if st.session_state.active_mode != mode:
     st.session_state.active_mode = mode
 
 # ── Functions ────────────────────────────────────────────────
-def stt(audio_bytes: bytes, mime_type: str = "audio/webm") -> str:
+def stt(audio_bytes: bytes, mime_type: str = "audio/mp4") -> str:
     ext_map = {
-        "audio/webm": ".webm",
         "audio/mp4": ".mp4",
+        "audio/webm": ".webm",
         "audio/ogg": ".ogg",
         "audio/wav": ".wav",
     }
-    ext = next((v for k, v in ext_map.items() if mime_type.startswith(k)), ".webm")
+    ext = next((v for k, v in ext_map.items() if mime_type.startswith(k)), ".mp4")
     with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as f:
         f.write(audio_bytes)
         path = f.name
@@ -566,26 +644,20 @@ def stream_gemini(messages: list, system_prompt: str) -> str:
     return full_text
 
 def process_audio(audio_b64: str, mime_type: str):
-    """Decode base64 audio from recorder, run full pipeline."""
     _, data = audio_b64.split(",", 1)
     audio_bytes = base64.b64decode(data)
-
     with st.spinner("Just a moment..."):
         user_text = stt(audio_bytes, mime_type)
-
     if not user_text:
         return
-
     full_text = user_text
     if st.session_state.specimen_name and not IS_MODE_4:
         full_text = f"[Specimen: {st.session_state.specimen_name}] {user_text}"
-
     display_text = user_text
     if st.session_state.specimen_name and not IS_MODE_4:
         display_text = f"🔬 {st.session_state.specimen_name} — {user_text}"
     if st.session_state.pending_image and not IS_MODE_4:
         display_text = "📷 " + display_text
-
     user_msg = build_user_message(
         full_text,
         st.session_state.pending_image if not IS_MODE_4 else None
@@ -594,12 +666,9 @@ def process_audio(audio_b64: str, mime_type: str):
     st.session_state.history.append(user_msg)
     if not IS_MODE_4:
         st.session_state.pending_image = None
-
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.history
-
     st.markdown(f'<div class="{get_label_class()}">{get_label()}</div>', unsafe_allow_html=True)
     reply = stream_gemini(messages, SYSTEM_PROMPT)
-
     if reply:
         log_exchange(user_text, reply, mode)
         audio_bytes_tts = tts(reply)
@@ -607,7 +676,6 @@ def process_audio(audio_b64: str, mime_type: str):
         st.session_state.history.append({"role": "assistant", "content": reply})
         display_role = "kids" if IS_MODE_4 else "guide"
         st.session_state.display.append({"role": display_role, "content": reply})
-
     if len(st.session_state.history) > 20:
         st.session_state.history = st.session_state.history[-20:]
 
@@ -629,13 +697,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Check for audio posted from Vercel recorder via URL param ─
+# ── Check for audio from recorder via URL param ───────────────
 params = st.query_params
 if "_audio" in params and not IS_MODE_3:
     try:
         payload = json.loads(params["_audio"])
         audio_b64 = payload.get("audio", "")
-        mime_type = payload.get("mimeType", "audio/webm")
+        mime_type = payload.get("mimeType", "audio/mp4")
         st.query_params.clear()
         if audio_b64:
             process_audio(audio_b64, mime_type)
@@ -717,26 +785,8 @@ else:
             """, unsafe_allow_html=True)
 
     with col3:
-        # ── Vercel recorder (replaces st.audio_input, works on iOS) ──
-        recorder_html = f"""
-            <iframe
-                src="{RECORDER_URL}"
-                style="border:none; width:100%; height:50px;"
-                allow="microphone"
-            ></iframe>
-            <script>
-            window.addEventListener('message', function(e) {{
-                if (!e.data || e.data.type !== 'AUDIO_RECORDED') return;
-                var encoded = encodeURIComponent(JSON.stringify({{
-                    audio: e.data.audio,
-                    mimeType: e.data.mimeType
-                }}));
-                var base = window.parent.location.href.split('?')[0];
-                window.parent.location.href = base + '?_audio=' + encoded;
-            }});
-            </script>
-        """
-        st.components.v1.html(recorder_html, height=60)
+        # ── Inline recorder — works on iOS, no external iframe needed ──
+        st.components.v1.html(RECORDER_COMPONENT, height=70)
 
     st.components.v1.html("""
     <button
