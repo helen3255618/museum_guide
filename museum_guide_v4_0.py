@@ -704,7 +704,7 @@ else:
     with st.form(key="text_form", clear_on_submit=True):
         text_input = st.text_input(
             label="text question",
-            placeholder="Type or use your keyboard's 🎤 voice input...",
+            placeholder="Type or use your keyboard's voice input...",
             label_visibility="collapsed",
         )
         text_submitted = st.form_submit_button("→ Send", use_container_width=False)
